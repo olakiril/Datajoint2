@@ -1,5 +1,7 @@
 function makeTuples( obj, key, cellFinder, type,shareMask)
 
+import vis2p.*
+
 %% ScanImage
 if strcmp(fetch1(Scans(key),'scan_prog'),'ScanImage')
     % get site data

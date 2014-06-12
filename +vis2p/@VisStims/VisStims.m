@@ -14,8 +14,8 @@ INDEX(stim_idx)
 
 classdef VisStims < dj.Relvar & dj.AutoPopulate
 
-	properties
-		popRel = vis2p.Scans('stim_engine = "VisStim"  or stim_engine = "State" and problem_type = "none!" or stim_engine = "other" and problem_type = "none!"').*Experiments('process = "yes"')
+	properties (Constant)
+		popRel = vis2p.Scans('stim_engine = "VisStim"  or stim_engine = "State" and problem_type = "none!" or stim_engine = "other" and problem_type = "none!"').*vis2p.Experiments('process = "yes"')
 	end
 
 	methods(Access=protected)
@@ -27,10 +27,7 @@ classdef VisStims < dj.Relvar & dj.AutoPopulate
     methods
 		function self = VisStims(varargin)
 			self.restrict(varargin{:})
-		end
-
-		gui( visStims )
-
+        end
 		plot(obj)
 
 	end

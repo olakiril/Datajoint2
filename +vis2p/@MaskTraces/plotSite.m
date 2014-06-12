@@ -12,8 +12,8 @@ while k <length(keys)
     key = keys(k);
     
     % get trace
-    traces = fetchn(MaskTraces(key),tracetype);
-    [fps x y]   = fetchn( Movies(key), 'fps','alignXshifts','alignYshifts');
+    traces = fetchn(vis2p.MaskTraces(key),tracetype);
+    [fps, x, y]   = fetchn(vis2p.Movies(key), 'fps','alignXshifts','alignYshifts');
     
     traces = cell2mat(traces');
     scale = 1;

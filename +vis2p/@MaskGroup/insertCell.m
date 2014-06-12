@@ -1,5 +1,7 @@
 function insertCell( obj, key,masktype)
 
+import vis2p.*
+
 masknum = [];
 if strcmp(fetch1(Scans(key),'scan_prog'),'MPScan')
     %%%% Detect Spikes %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

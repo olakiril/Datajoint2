@@ -6,22 +6,22 @@ end
 
 % get traces and frames
 [traces(:,:,1),traces(:,:,2),traces(:,:,3)] = ...
-    fetchn(MaskTraces('masknum>0').*obj,...
+    fetchn(vis2p.MaskTraces('masknum>0').*obj,...
     'calcium_trace','red_trace','annulus_trace');
 traceTypes = size(traces,3);
 traces = ([traces{:}]);  % traces are in columns
 traces = reshape(traces,size(traces,1),[],traceTypes);
 
-fps = fetch1(Movies.*obj,'fps'); %#ok<NASGU>
+fps = fetch1(vis2p.Movies.*obj,'fps'); %#ok<NASGU>
 
-key = fetch(Scans.*obj);
+key = fetch(vis2p.Scans.*obj);
 TRACES = cell(length(opts),1);
 for iTopt = 1:length(opts)
     key.trace_opt = opts(iTopt);
-    tracesP = fetchn(Traces(key,'masknum>0'),'trace');
+    tracesP = fetchn(vis2p.Traces(key,'masknum>0'),'trace');
     if isempty(tracesP)
-        traceOpt = fetch(TracesOpt(key),'*'); %#ok<NASGU>
-        options = fetch1(TracesOpt(key),'trace_computation');
+        traceOpt = fetch(vis2p.TracesOpt(key),'*'); %#ok<NASGU>
+        options = fetch1(vis2p.TracesOpt(key),'trace_computation');
         options = strread(options, '%s','delimiter',',');
         
         % filter traces

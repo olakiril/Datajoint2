@@ -1,5 +1,7 @@
 function makeTuples( obj, key )
 
+import vis2p.*
+
 tuple = key;
 
 if strcmp(fetch1(Scans(key),'scan_prog'),'MPScan')

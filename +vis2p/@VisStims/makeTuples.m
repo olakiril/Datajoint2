@@ -2,6 +2,8 @@ function makeTuples( obj, key)
 
 tuple = key;
 
+import vis2p.*
+
 state = strcmp(fetch1(Scans(key),'stim_engine'),'State');
 if state
     if ~isempty(Scans(key,'exp_date > "2012-09-01"'))

@@ -1,8 +1,10 @@
 function makeTuples(obj,key)
 
+import vis2p.*
+
 if strcmp(fetch1(Scans(key),'scan_prog'),'Unirec')
     if key.trace_opt == 6
-    [path,name] = fetch1( Experiments*Scans(key), 'directory','file_name' );
+    [path,name] = fetch1(Experiments*Scans(key), 'directory','file_name' );
     filename = getLocalPath([path '/' name '%d.h5']);
      br = baseReader(filename);
      

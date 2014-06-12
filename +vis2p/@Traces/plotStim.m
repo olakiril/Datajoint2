@@ -5,14 +5,14 @@ if nargin<4 || isempty(lp); lp = 10; end
 % if nargin<5;  figure; end
 
 % get traces and frames
-sp = fetch1(Scans.*obj,'scan_prog');
+sp = fetch1(vis2p.Scans.*obj,'scan_prog');
 if strcmp(sp,'AOD')
     [traces(:,:,1),traces(:,:,2)] = ...
-        fetchn(MaskTraces('masknum>0').*obj,...
+        fetchn(vis2p.MaskTraces('masknum>0').*obj,...
         'calcium_trace','red_trace');
 else
     [traces(:,:,1),traces(:,:,2),traces(:,:,3)] = ...
-        fetchn(MaskTraces('masknum>0').*obj,...
+        fetchn(vis2p.MaskTraces('masknum>0').*obj,...
         'calcium_trace','red_trace','annulus_trace');
 end
 if nargin<3 || isempty(cind)
@@ -26,11 +26,11 @@ traces = reshape(traces,size(traces,1),[],traceTypes);
 
 if strcmp(sp,'AOD');traces = (traces)+abs(min(traces(:)));end
 
-fps = fetch1(Movies.*obj,'fps');
-key = fetch(Scans.*obj);
+fps = fetch1(vis2p.Movies.*obj,'fps');
+key = fetch(vis2p.Scans.*obj);
 key.trace_opt = opts(1);
-traceOpt = fetch(TracesOpt(key),'*');
-options = fetch1(TracesOpt(key),'trace_computation');
+traceOpt = fetch(vis2p.TracesOpt(key),'*');
+options = fetch1(vis2p.TracesOpt(key),'trace_computation');
 options = strread(options, '%s','delimiter',',');
 
 % low pass filter
@@ -46,7 +46,7 @@ end
 TRACES = tracesP;
 
 % Load times of the trace
-times = fetch1(VisStims(key).*StatsParams,'frame_timestamps');
+times = fetch1(vis2p.VisStims(key).*StatsParams,'frame_timestamps');
 
 % equalize traces 2 times if length difference is 1
 if abs(length(TRACES) - length(times)) == 1

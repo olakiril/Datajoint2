@@ -7,7 +7,8 @@ field = fetch1(vis2p.RFMap(key),'onpoff_rf');
 
 % fit gauss
 s = fetch1(vis2p.VisStims(key),'stim_file');
-deg2dot = s.params.constants.dotNumX/s.params.constants.monitorSize(1);
+theta = atand(s.params.constants.monitorSize(1)/2/s.params.constants.monitorDistance)*2;
+deg2dot = s.params.constants.dotNumX/theta;
 tuple.gauss_fit = fitGauss(field,'deg2dot',deg2dot);
 
 % compute snr

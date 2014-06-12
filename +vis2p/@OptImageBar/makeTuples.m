@@ -1,8 +1,10 @@
 function makeTuples( obj, key )
 
+import vis2p.*
+
 % get Optical data
 disp 'loading movie...'
-[name date] = fetch1( Scans(key),'file_name','exp_date' );
+[name, date] = fetch1( Scans(key),'file_name','exp_date' );
 if ~isempty(strfind(name,'.h5'));fend = [];else fend = '.h5';end
 path = ['M:/IntrinsicImaging/' datestr(date, 'yymmdd')];
 filename = getLocalPath([path '/' name fend]);

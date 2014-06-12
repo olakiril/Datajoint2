@@ -17,7 +17,7 @@ keys = fetch(obj);
 
 for ikey = 1:length(keys)
       
-    [imP vessels imA] = fetch1(OptImageBar(keys(ikey)),'ang','vessels','amp');
+    [imP vessels imA] = fetch1(vis2p.OptImageBar(keys(ikey)),'ang','vessels','amp');
     
     imA(imA>prctile(imA(:),99)) = prctile(imA(:),99);
     
