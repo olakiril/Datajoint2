@@ -6,6 +6,8 @@ function frames = getFrames(self, channel, frameIdx, raster, mc)
 %
 % MF 2013-08
 
+import vis2p.*
+
 if isobject(self)
     % get scan
     scim = tpReader(Scans.*self);

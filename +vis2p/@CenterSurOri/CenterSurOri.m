@@ -18,7 +18,7 @@ INDEX(mouse_id,exp_date,scan_idx,center_sur_opt,trace_opt)
 classdef CenterSurOri < dj.Relvar & dj.AutoPopulate
     
     properties(Constant)
-        popRel = vis2p.Traces*vis2p.CenterSurParams('process = "yes"').*vis2p.Scans('problem_type = "none!"')
+        popRel = vis2p.Traces*vis2p.CenterSurParams('process = "yes"').*(vis2p.Scans('problem_type = "none!"').*vis2p.CenterSurTrials('repeat_num = 1'))
     end
     
     methods

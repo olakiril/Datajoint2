@@ -1,4 +1,4 @@
 function makeTuples(obj,key)
 
 insert(obj, key);
-makeTuples(Traces,key);
+makeTuples(vis2p.Traces,key);

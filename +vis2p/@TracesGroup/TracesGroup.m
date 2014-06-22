@@ -8,7 +8,7 @@ vis2p.TracesGroup (computed) #
 
 classdef TracesGroup < dj.Relvar & dj.AutoPopulate
 
-	properties
+	properties (Constant)
 		popRel = (vis2p.MaskGroup*vis2p.TracesOpt('process = "yes"')).*vis2p.Experiments('process = "yes"')
 	end
 

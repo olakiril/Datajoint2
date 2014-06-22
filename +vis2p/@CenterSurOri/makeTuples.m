@@ -33,7 +33,7 @@ for iArea = 1:2
     % fit Von Mises with the true data
     orientations = oris{iArea}(idx)'/360 * 2 * pi;
     FitVonMisses = fitVonMises(m,orientations);
-    [~, Pdm] = opticalProperties(FitVonMisses);
+    [~,~,~,Pdm] = opticalProperties(FitVonMisses);
     
     % Calciulate 
      [~, dm] = max(m);
@@ -81,14 +81,11 @@ for iArea = 1:2
     eval(['key.Poti' names{iArea} ' = mean( oti > otiRaw );'])
     eval(['key.ori' names{iArea} ' = ori + baseline;'])
     eval(['key.Pdm' names{iArea} ' = Pdm;'])
+    
+    if iArea==2
+       key.fitVM = FitVonMisses; 
+    end
 end
-
-% center the preffered dm for exporting
-idx = oris{2}>=0;
-[~, dm] = min(abs(key.PdmIn*360 / 2 / pi - oris{2}(idx)));
-rotIdx = circshift(1:length(orientations),[1 round(length(orientations)/2)-dm]);
-traces = traces(2:end,2:end,:,:);
-key.maxTraces = squeeze(traces(rotIdx,dm,:,:));
 
 % insert data
 insert( obj, key );

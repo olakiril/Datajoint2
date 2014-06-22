@@ -1,9 +1,9 @@
 function makeTuples( this, key )
 
 % get traces
-[cellnums,traces] = fetchn( MaskTraces(key,'masknum>0'), 'masknum', 'calcium_trace' );
+[cellnums,traces] = fetchn( vis2p.MaskTraces(key,'masknum>0'), 'masknum', 'calcium_trace' );
 traces = [traces{:}];
-fps    = fetch1( Movies(key), 'fps' );
+fps    = fetch1( vis2p.Movies(key), 'fps' );
 % filter traces
 [etraces,cleanTraces,baseline] = getCaEvents(double(traces),fps); %#ok<ASGLU>
 
