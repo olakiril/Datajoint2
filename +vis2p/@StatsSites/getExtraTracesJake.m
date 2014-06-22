@@ -24,6 +24,8 @@ params = getParams(params,varargin);
 %get key
 keys = fetch(obj);
 
+import vis2p.*
+
 T = cell(1,length(keys));
 binsize = T;
 for k = 1:length(keys)

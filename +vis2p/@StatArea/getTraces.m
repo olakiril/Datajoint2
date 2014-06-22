@@ -12,7 +12,7 @@ params.area = 'v1o';
 params.collapse = 0;
 
 params = getParams(params,varargin);
-
+import vis2p.*
 skeys = fetch(StatsSites(params.key));
 keys = skeys;
 

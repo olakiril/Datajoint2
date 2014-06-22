@@ -20,6 +20,8 @@ params.unimovie = 0; % separate traces for different movies
 
 params = getParams(params,varargin);
 
+import vis2p.*
+
 %get key
 if params.compute
     keys = fetch(Scans(params.key)*StatsParams(params.key));

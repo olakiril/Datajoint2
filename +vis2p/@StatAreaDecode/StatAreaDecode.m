@@ -16,7 +16,7 @@ cpV2                        : mediumblob                    #
 
 classdef StatAreaDecode < dj.Relvar & dj.AutoPopulate
 
-	properties
+	properties (Constant)
 		popRel = vis2p.StatsSites('stats_opt = 7 and trace_opt = 17')*vis2p.StatArea*vis2p.StatAreaDecodeParams('process = "yes"')
 	end
 
