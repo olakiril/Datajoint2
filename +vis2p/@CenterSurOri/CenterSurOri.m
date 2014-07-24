@@ -29,7 +29,7 @@ classdef CenterSurOri < dj.Relvar & dj.AutoPopulate
         
         [T,oris, binsize] = getTraces(obj,varargin)
         
-        plot(obj)
+        plot(obj,type)
         
     end
     methods(Access=protected)

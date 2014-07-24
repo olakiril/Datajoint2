@@ -1,16 +1,17 @@
-function plot(obj)
+function plot(obj,type)
 
 figure
 import vis2p.*
 
-[PotiIn, oriIn, PotiOut,pdm,fitVM] = fetchn(obj,...
-    'PotiIn','oriIn','PotiOut','PdmIn','fitVM');
+[PotiIn, oriIn, PotiOut,pdm,fitVM,AllTraces] = fetchn(obj,...
+    'PotiIn','oriIn','PotiOut','PdmIn','fitVM','oriTraces');
 
 idx = PotiIn<0.05 & PotiOut>0.05;
 
 oris = oriIn(idx);
 % mtraces = maxTraces(idx);
 
+if nargin<2; type = 'tunning';end
 %%
 % colors = hsv(length(mtraces));
 % x = [-135 -90 -45 0 45 90 135 180];
@@ -70,36 +71,47 @@ oris = oriIn(idx);
 
 %% plot all tunning curves
 
-keys = fetch(obj);
-keys= keys(idx);
-pdm = pdm(idx);
-x = [0:45:315];
-colors = hot(length(x)+2);
-
-for i = 1:length(keys)
+if strcmp(type,'tunning')
+    
+    keys = fetch(obj);
+    keys= keys(idx);
+    pdm = pdm(idx);
+    x = [0:45:315];
+    colors = parula(length(x));
+    
+    for i = 1:length(keys)
         subplot(ceil(sqrt(length(pdm))),ceil(sqrt(length(pdm))),i)
+        
+        
+        traces = squeeze(AllTraces{i});
+        
+        [mx,imx] = max(mean(mean(traces(:,2:end,:),3),1));
+        [~,ipd] = sort(min(abs([...
+            circ_dist(x(imx)/180*pi,x/180*pi);...
+            circ_dist(x(imx)/180*pi + pi,x/180*pi)...
+            ])));
 
-    [~,ipd] = sort(min(abs([circ_dist(pdm(i),x/360*2*pi);circ_dist(pdm(i)+pi,x/360*2*pi)])));
-
-    traces = squeeze(getTraces(CenterSurOri,'key',keys(i),'compute',1));
-
-    traces1 = squeeze(traces(1,2:end,:));
-    mtrace = nanmean(traces1,2);
-    etrace = nanstd(traces1,[],2)/sqrt(size(oris{i},1));
-    errorbar(x',mtrace,etrace,'k')
-    hold on
-
-    for iori = 1:length(ipd)
-        traces2 = squeeze(traces(1+ipd(iori),2:end,:));
-        mtrace = nanmean(traces2,2);
-        etrace = nanstd(traces2,[],2)/sqrt(size(oris{i},1));
-        errorbar(x',mtrace',etrace','color',colors(ipd(iori),:))
+                
+        traces1 = squeeze(traces(1,2:end,:));
+        mtrace = nanmean(traces1,2);
+        etrace = nanstd(traces1,[],2)/sqrt(size(oris{i},1));
+        errorbar(x',mtrace,etrace,'r')
+        hold on
+        
+        for iori = 1:length(ipd)
+            traces2 = squeeze(traces(1+ipd(iori),2:end,:));
+            mtrace = nanmean(traces2,2);
+            etrace = nanstd(traces2,[],2)/sqrt(size(oris{i},1));
+            errorbar(x',mtrace',etrace','color',colors(ipd(iori),:))
+        end
+        title(['pr: ' num2str(roundall(mean(reshape(traces(1+ipd(1:2),1+imx,:),[],1))/mx,0.01)) ...
+            ' a: ' num2str(roundall(mean(reshape(traces(1+ipd(end-1:end),1+imx,:),[],1))/mx,0.01))...
+            ' ' keys(i).exp_date ' ' num2str(keys(i).scan_idx) ' ' num2str(keys(i).masknum)])
+        set(gca,'xtick',x,'box','off')
+        xlim([-5 320])
+        set(gca,'fontsize',6)
+        axis off
     end
-
-    set(gca,'xtick',x,'box','off')
-    xlim([-5 320])
-    set(gca,'fontsize',6)
-    axis off
 end
 
 %% plot mean surround
@@ -142,26 +154,26 @@ end
 % mtrace = [];
 % for i = 1:length(keys)
 %     [~,ipd] = sort(min(abs([circ_dist(pdm(i),x/360*2*pi);circ_dist(pdm(i)+pi,x/360*2*pi)])));
-% 
+%
 %     traces = squeeze(getTraces(CenterSurOri,'key',keys(i),'compute',1));
-% 
+%
 %     % sort and normalize by max
 %     traces = mean(traces(:,2:9,:),3);
 %     [mx,imx] = max(traces(1,:));
 %     traces = circshift(traces,[0 4-imx 0])/mx;
-% 
+%
 %     mtrace(i,1,:) = squeeze(traces(1,:));
-% 
+%
 %     for iori = 1:length(ipd)
 %         mtrace(i,1+iori,:) = squeeze(traces(1+ipd(iori),:));
 %     end
 % end
-% 
+%
 % mtraces = squeeze(mean(mtrace));
 % etraces = squeeze(nanstd(mtrace)/sqrt(size(mtrace,1)));
-% 
+%
 % for i = 1:size(mtraces,1)
-% 
+%
 %     errorbar(mtraces(i,:),etraces(i,:),'color',colors(i,:))
 %     hold on
 % end
@@ -204,131 +216,139 @@ end
 
 
 %% plot relative curve
-% x = [-135 -90 -45 0 45 90 135 180];
-% keys = fetch(obj);
-% keys= keys(idx);
-% pdm = pdm(idx);
-% mtrace = [];
-% for i = 1:length(keys)
-% 
-%     traces = squeeze(getTraces(CenterSurOri,'key',keys(i),'compute',1));
-% 
-%     sort and normalize by max
-%     traces = mean(traces(:,2:9,:),3);
-%     [mx,imx] = max(traces(1,:));
-%         mtrace(i,1,:) = squeeze( circshift(traces(1,:,:),[0 4-imx 0])/mx);
-%     traces = circshift(traces(2:end,:,:),[4-imx 4-imx 0])/mx;
-% 
-%     for iori = 1:size(traces,1)
-%         mtrace(i,1+iori,:) = traces(iori,:);
-%     end
-% end
-% trace = mtrace(:,2:end,4);
-%  mtraces = mean(trace);
-%   etraces = std(trace)/sqrt(size(trace,1));
-% 
-%     errorbar(x,mtraces,etraces)
-% set(gca,'box','off')
-% ylim([0.7 1])
-% set(gca,'xtick',[-135 -90 -45 0 45 90 135 180])
-% ylabel('Relative response')
-% xlabel('Surround stimulus relative to preffered Orientation')
-%% plot relative curve for all
-% x = [-135 -90 -45 0 45 90 135 180];
-% keys = fetch(obj);
-% keys= keys(idx);
-% mtraces = [];
-% for i = 1:length(keys)
-%     
-%     traces = squeeze(getTraces(CenterSurOri,'key',keys(i),'compute',1));
-%     
-%     %sort and normalize by max
-%     traces = (traces(:,2:9,:));
-%     [mx,imx] = max(mean(traces(1,:,:),3));
-%     
-%     tr =  circshift(traces(2:end,:,:),[4-imx 4-imx 0])/mx;
-%     mtraces{i} = squeeze(tr(:,4,:));
-%     
-% end
-% 
-% colors = ['y' 'r' 'y' 'g' 'y' 'r' 'y' 'g'];
-% xl = {'-135' '-90' '-45' '0' '45' '90' '135' '180'};
-% for i = 1:length(mtraces)
-%     subplot(ceil(sqrt(length(mtraces))),ceil(sqrt(length(mtraces))),i)
-%     mtrace = mean(mtraces{i},2);
-%     
-%     etrace = std(mtraces{i},[],2)/sqrt(size(mtraces{i},2));
-%     errorbar(x',mtrace,etrace)
-%     hold on
-%     for ic = 1:length(mtrace)
-%         plot(x(ic),mtrace(ic),'.','color',colors(ic))
-%     end
-%     set(gca,'xtick',[],'xticklabel',[],'box','off')
-%     xlim([-140 185])
-%     if i == (ceil(sqrt(length(mtraces)))^2 - ceil(sqrt(length(mtraces))) + 1)
-%         set(gca,'xtick',x,'xticklabel',x)
-%         
-%     end
-% end
+if strcmp(type,'rel')
+    x = [-135 -90 -45 0 45 90 135 180];
+    keys = fetch(obj);
+    keys= keys(idx);
+    pdm = pdm(idx);
+    mtrace = [];
+    for i = 1:length(keys)
 
+        traces = squeeze(AllTraces{i});
+
+    %     sort and normalize by max
+        traces = mean(traces(:,2:9,:),3);
+        [mx,imx] = max(traces(1,:));
+            mtrace(i,1,:) = squeeze( circshift(traces(1,:,:),[0 4-imx 0])/mx);
+        traces = circshift(traces(2:end,:,:),[4-imx 4-imx 0])/mx;
+
+        for iori = 1:size(traces,1)
+            mtrace(i,1+iori,:) = traces(iori,:);
+        end
+    end
+    trace = mtrace(:,2:end,4);
+     mtraces = mean(trace);
+      etraces = std(trace)/sqrt(size(trace,1));
+
+        errorbar(x,mtraces,etraces)
+    set(gca,'box','off')
+    ylim([0.7 1])
+    set(gca,'xtick',[-135 -90 -45 0 45 90 135 180])
+    ylabel('Relative response')
+    xlabel('Surround stimulus relative to preffered Orientation')
+end
+
+%% plot relative curve for all
+if strcmp(type,'relAll')
+    
+    x = [-135 -90 -45 0 45 90 135 180];
+    keys = fetch(obj);
+    keys= keys(idx);
+    mtraces = [];
+    for i = 1:length(keys)
+        
+        traces = squeeze(AllTraces{i});
+        
+        %sort and normalize by max
+        traces = (traces(:,2:9,:));
+        [mx,imx] = max(mean(mean(traces(:,:,:),3),1));
+        
+        tr =  circshift(traces(2:end,:,:),[4-imx 4-imx 0])/mx;
+        mtraces{i} = squeeze(tr(:,4,:));
+        
+    end
+    
+    colors = ['y' 'r' 'y' 'g' 'y' 'r' 'y' 'g'];
+    xl = {'-135' '-90' '-45' '0' '45' '90' '135' '180'};
+    for i = 1:length(mtraces)
+        subplot(ceil(sqrt(length(mtraces))),ceil(sqrt(length(mtraces))),i)
+        mtrace = mean(mtraces{i},2);
+        
+        etrace = std(mtraces{i},[],2)/sqrt(size(mtraces{i},2));
+        errorbar(x',mtrace,etrace)
+        hold on
+        for ic = 1:length(mtrace)
+            plot(x(ic),mtrace(ic),'.','color',colors(ic))
+        end
+        set(gca,'xtick',[],'xticklabel',[],'box','off')
+        xlim([-140 185])
+        if i == (ceil(sqrt(length(mtraces)))^2 - ceil(sqrt(length(mtraces))) + 1)
+            set(gca,'xtick',x,'xticklabel',x)
+            
+        end
+    end
+end
 %% plus histogram
-% keys = fetch(obj);
-% keys= keys(idx);
-% 
-% x = [-135 -90 -45 0 45 90 135 180];
-% mtraces = [];
-% Gtraces = [];
-% for i = 1:length(keys)
-%     
-%     traces = squeeze(getTraces(vis2p.CenterSurOri,'key',keys(i),'compute',1));
-%     k = [];
-%     k.exp_date = keys(i).exp_date;
-%     k.scan_idx = keys(i).scan_idx;
-%     k.trace_opt = keys(i).trace_opt;
-%     k.center_sur_opt = keys(i).center_sur_opt;
-%     TRACE = getTraces(vis2p.CenterSurOri,'key',k,'compute',1);
-%     [pd, poti]= fetchn(vis2p.CenterSurOri(k),'PdmIn','PotiIn');
-%     c = normalize(histc(pd/pi*180,0:45:315));
-% %     c = normalize(squeeze(mean(mean(mean(TRACE(:,2:end,:,:),4),3),1)));
-% % c = sparseness(squeeze(mean(mean(TRACE(1,2:end,:,:),4),1))');    
-%     % sort and normalize by max
-%     traces = (traces(:,2:9,:));
-%     [mx,imx] = max(mean(traces(1,:,:),3));
-% 
-%     Gtraces(i,:) = circshift(c,[0 4-imx]);
-%     tr =  circshift(traces(2:end,:,:),[4-imx 4-imx 0])/mx;
-%     mtraces{i} = squeeze(tr(:,4,:));
-%     
-% end
-% 
-% colors = ['y' 'r' 'y' 'g' 'y' 'r' 'y' 'g'];
-% xl = {'-135' '-90' '-45' '0' '45' '90' '135' '180'};
-% for i = 1:length(mtraces)
-%     subplot(ceil(sqrt(length(mtraces))),ceil(sqrt(length(mtraces))),i)
-%     mtrace = mean(mtraces{i},2);
-%     
-%     etrace = std(mtraces{i},[],2)/sqrt(size(mtraces{i},2));
-%     errorbar(x',mtrace,etrace)
-%     hold on
-%     for ic = 1:length(mtrace)
-%         plot(x(ic),mtrace(ic),'.','color',colors(ic))
-%     end
-%     plot(x,(Gtraces(i,:)),'k')
-%     set(gca,'xtick',[],'xticklabel',[],'box','off')
-%     xlim([-140 185])
-%     if i == (ceil(sqrt(length(mtraces)))^2 - ceil(sqrt(length(mtraces))) + 1)
-%         set(gca,'xtick',x,'xticklabel',x)
-%         
-%     end
-% end
+if strcmp(type,'relAllHist')
+    
+    keys = fetch(obj);
+    keys= keys(idx);
+
+    x = [-135 -90 -45 0 45 90 135 180];
+    mtraces = [];
+    Gtraces = [];
+    for i = 1:length(keys)
+
+        traces = squeeze(AllTraces{i});
+        k = [];
+        k.exp_date = keys(i).exp_date;
+        k.scan_idx = keys(i).scan_idx;
+        k.trace_opt = keys(i).trace_opt;
+        k.center_sur_opt = keys(i).center_sur_opt;
+%         TRACE = getTraces(vis2p.CenterSurOri,'key',k,'compute',1);
+        [pd, poti]= fetchn(vis2p.CenterSurOri(k),'PdmIn','PotiIn');
+        c = normalize(histc(pd/pi*180,0:45:315));
+    %     c = normalize(squeeze(mean(mean(mean(TRACE(:,2:end,:,:),4),3),1)));
+    % c = sparseness(squeeze(mean(mean(TRACE(1,2:end,:,:),4),1))');
+        % sort and normalize by max
+        traces = (traces(:,2:9,:));
+        [mx,imx] = max(mean(traces(1,:,:),3));
+
+        Gtraces(i,:) = circshift(c,[0 4-imx]);
+        tr =  circshift(traces(2:end,:,:),[4-imx 4-imx 0])/mx;
+        mtraces{i} = squeeze(tr(:,4,:));
+
+    end
+
+    colors = ['y' 'r' 'y' 'g' 'y' 'r' 'y' 'g'];
+    xl = {'-135' '-90' '-45' '0' '45' '90' '135' '180'};
+    for i = 1:length(mtraces)
+        subplot(ceil(sqrt(length(mtraces))),ceil(sqrt(length(mtraces))),i)
+        mtrace = mean(mtraces{i},2);
+
+        etrace = std(mtraces{i},[],2)/sqrt(size(mtraces{i},2));
+        errorbar(x',mtrace,etrace)
+        hold on
+        for ic = 1:length(mtrace)
+            plot(x(ic),mtrace(ic),'.','color',colors(ic))
+        end
+        plot(x,(Gtraces(i,:)),'k')
+        set(gca,'xtick',[],'xticklabel',[],'box','off')
+        xlim([-140 185])
+        if i == (ceil(sqrt(length(mtraces)))^2 - ceil(sqrt(length(mtraces))) + 1)
+            set(gca,'xtick',x,'xticklabel',x)
+
+        end
+    end
+end
 %% RF
 % keys = fetch(obj);
 % keys= keys(idx);
-% 
+%
 % for i = 1:length(keys)
 %     subplot(ceil(sqrt(length(keys))),ceil(sqrt(length(keys))),i)
-%    
+%
 %    plotRF(obj,keys(i),'background','stimulus')
-%  
-%     
+%
+%
 % end

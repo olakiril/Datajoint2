@@ -15,6 +15,9 @@ if isempty(traces)
     return
 end
 
+% insertTraces
+key.oriTraces = traces;
+
 % Calculate tuning 
 for iArea = 1:2
     idx = oris{iArea}>=0;

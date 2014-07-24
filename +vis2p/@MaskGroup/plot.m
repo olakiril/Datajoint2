@@ -1,5 +1,5 @@
 function fh = plot(keys)
-
+import vis2p.*
 keys = fetch(keys);
 fh = figure;
 % set(gcf,'position',[ 11   260   889   350]);

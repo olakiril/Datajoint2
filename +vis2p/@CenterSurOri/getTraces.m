@@ -1,13 +1,12 @@
-function [T,oris, binsize] = getTraces(obj,varargin)
+function [T,oris] = getTraces(obj,varargin)
 
-% function [T ,{oriOut} {oriIn}, binsize] = getTraces(obj,varargin)
+% function [T ,{oriOut} {oriIn}] = getTraces(obj,varargin)
 %
 % gets the traces for the CenterSurround experiment
 % [oriOut oriIn cells trials]
 %
 % MF 2014-06
 
-params.bin = []; % msec
 params.thr = []; % sd's
 params.method = [] ; % method of trace resampling
 params.key = 'masknum>0';
@@ -16,6 +15,8 @@ params.compute2 = 0;
 params.minLength = 8; % min seconds of movie for concatenation
 params.minTr = 2; % minimum trials for concatenation
 params.collapse = 0; % collapse trials of same site recorgings
+params.off = 0;
+params.resp_time = 1000;
 
 params = getParams(params,varargin);
 
@@ -36,13 +37,11 @@ else  keys = fetch(obj);
 end
 
 T = cell(1,length(keys));
-binsize = T;
 for k = 1:length(keys); key = keys(k);
     
     % get extra params
-    [bin, rsThr, Qual, rpThr, eThr,method]= fetch1(CenterSurParams(key),...
-        'binsize','rf_snr_thr','trace_qual','rf_p_thr','event_thr','samp_method');
-    if isempty(params.bin);params.bin = bin;end
+    [rsThr, Qual, rpThr, eThr,method]= fetch1(CenterSurParams(key),...
+        'rf_snr_thr','trace_qual','rf_p_thr','event_thr','samp_method');
     if isempty(params.thr);params.thr = eThr;end
     if isempty(params.method);params.method = method;end
    
@@ -59,6 +58,7 @@ for k = 1:length(keys); key = keys(k);
     
     % get trace
     traces = fetchn(Tr,'trace');
+    if isempty(traces);disp noTraces!;T{k} = [];oris = [];continue;end
     tracesM = cell2mat(traces');
     fps    = fetch1( Movies(key), 'fps' );
     
@@ -72,22 +72,26 @@ for k = 1:length(keys); key = keys(k);
         times = times(1:ml);
     end
     
-    % rebin to approximate binsize (downsampling by an integer factor)
-    [tracesM, d] = trresize(tracesM,fps,params.bin,params.method);
-    times = trresize(times',fps,params.bin,params.method);
-    times = times(1:length(tracesM));
-    binsize{k} = d*1000/fps;
-    
     % stim times and types
     [stimTimes,oriIn,oriOut] = fetchn(CenterSurTrials(key),'movie_times','ori_in','ori_out');
     movies = [oriIn oriOut];
     uniMovies =unique(movies,'rows');
     
+    % switch to off response
+    if params.off
+       [st,sidx] = sort(cell2mat(stimTimes));
+       s = reshape(st(2:end-1),size(st,1)-1,2);
+       s(end+1,:) = [st(end) st(end)+abs(mean(diff(s')))];
+       stimTimes = mat2cell(s,ones(size(s,1),1),size(s,2));
+       oriIn = oriIn(sidx(:,1));
+       oriOut = oriOut(sidx(:,1));       
+    end
+    
     % find trace segments
     traces = cell(1,length(stimTimes));
     for iTimes = 1:length(stimTimes)
-        traces{iTimes} = tracesM(times>stimTimes{iTimes}(1) & ...
-            times<stimTimes{iTimes}(end),:);
+        traces{iTimes} = mean(tracesM(times>stimTimes{iTimes}(1) & ...
+            times<(stimTimes{iTimes}(1)+params.resp_time),:));
     end
     
     % remove incomplete trials

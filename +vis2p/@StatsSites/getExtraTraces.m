@@ -22,6 +22,8 @@ params.raw = 0;      % spit out the filtered trace
 
 params = getParams(params,varargin);
 
+import vis2p.*
+
 %get key
 keys = fetch(obj);
 
