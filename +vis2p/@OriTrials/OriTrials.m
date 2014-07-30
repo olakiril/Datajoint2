@@ -1,5 +1,5 @@
 %{
-vis2p.OriPresents (computed) # 
+vis2p.OriTrials (computed) # 
 -> vis2p.VisStims
 repeat_num      : mediumint unsigned     # 
 ori_num         : mediumint unsigned     # i) the orientation shown in this trial
@@ -8,7 +8,7 @@ ori_times                   : mediumblob                    # c) frame timestamp
 %}
 
 
-classdef OriPresents < dj.Relvar & dj.AutoPopulate
+classdef OriTrials < dj.Relvar & dj.AutoPopulate
 
 	properties
 		popRel = vis2p.VisStims('exp_type = "GratingExperiment"  or exp_type = "MultDimExperiment"')
@@ -20,7 +20,7 @@ classdef OriPresents < dj.Relvar & dj.AutoPopulate
     end
     
     methods
-		function self = OriPresents(varargin)
+		function self = OriTrials(varargin)
 			self.restrict(varargin{:})
 		end
 

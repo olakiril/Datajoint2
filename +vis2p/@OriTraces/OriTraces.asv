@@ -4,8 +4,10 @@ vis2p.OriTraces (computed) #
 -> vis2p.OriTracesParams
 stim_idx        : tinyint unsigned       # the index of the stim file coupled to the scan file
 ---
+ori                         : mediumblob                    # c) the raw data [trials,oris]
 Poti                        : double(4,3)                   # c) the significance of tuning from oti
-Pdm                         : double                        # c) oreffered direction of motion
+Pdoti                       : double(4,3)                   # c) the significance of tuning from dprime
+Pdm                         : mediumblob                    # c) oreffered direction of motion
 fitVM                       : mediumblob                    # Von misses fit
 INDEX(mouse_id,exp_date,scan_idx,stim_idx)
 %}
@@ -13,9 +15,10 @@ INDEX(mouse_id,exp_date,scan_idx,stim_idx)
 
 classdef OriTraces < dj.Relvar & dj.AutoPopulate
 
-	properties
+	properties(Constant)
 		popRel = vis2p.Traces*vis2p.OriTracesParams('process = "yes"') ... 
-            *((vis2p.VisStims.*vis2p.OriTrials).*vis2p.Scans('problem_type = "none!"'))
+            *vis2p.VisStims('exp_type = "GratingExperiment" or exp_type = "MultDimExperiment"') ...
+            .*vis2p.Scans('problem_type = "none!"')
 	end
 
 	methods(Access=protected)

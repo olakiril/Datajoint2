@@ -3,7 +3,7 @@ function makeTuples( obj, key )
 import vis2p.*
 
 % params
-shuffle = fetch1(OriTracesParams(key),'shuffle');
+shuffle = 5000;
 
 % get traces [oriOut oriIn cells trials]
 [traces,oris] = getTraces(OriTraces,'key',key,'compute',1);
@@ -13,6 +13,7 @@ if isempty(traces)
     display('Nothing to compute!')
     return
 end
+
 
 % make sure everything is greater than zero
 baseline = min(traces(:));
@@ -27,6 +28,7 @@ FitVonMisses = fitVonMises(m,orientations);
 
 % Calciulate
 [~, dm] = max(m);
+%     [~, dm] = min(abs(Pdm*360 / 2 / pi - oris{iArea}(idx)));
 [dm,~,dm90,dm270] = circOri(orientations,dm);
 otiRaw = (m(dm)-mean(m([dm90 dm270]))) ./(m(dm)+mean(m([dm90 dm270])));
 
@@ -66,9 +68,11 @@ orthPref = mean([areaMeanShfl(dm90); areaMeanShfl(dm270)]);
 prefMorthPref = pref - orthPref;
 oti = prefMorthPref ./(pref + orthPref);
 
+
 key.fitVM = FitVonMisses;
 key.Pdm = Pdm;
 key.Poti = mean( oti > otiRaw );
+key.ori = traces + baseline;
 
 % insert data
 insert( obj, key );
