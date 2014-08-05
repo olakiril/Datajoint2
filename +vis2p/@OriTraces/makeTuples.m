@@ -5,12 +5,19 @@ import vis2p.*
 % params
 shuffle = fetch1(OriTracesParams(key),'shuffle');
 
+% continue only if there are at least 8 directions shown
+oris = unique(fetchn(OriTrials(key),'ori_num'));
+if length(oris)<8;return;end
+
 % get traces [oriOut oriIn cells trials]
 [traces,oris] = getTraces(OriTraces,'key',key,'compute',1);
 
 % control error
 if isempty(traces)
     display('Nothing to compute!')
+    return
+elseif size(traces,1)<8
+    display('<8 orientations shown, not enought for tunning calculation!')
     return
 end
 
@@ -22,8 +29,12 @@ m = double(mean(traces,2));
 
 % fit Von Mises with the true data
 orientations = oris/360 * 2 * pi;
-FitVonMisses = fitVonMises(m,orientations);
+[FitVonMisses,res] = fitVonMises(m,orientations);
 [~,~,~,Pdm] = opticalProperties(FitVonMisses);
+
+% calculate weighted sum of squared errors of the fit
+v = var(traces,[],2);
+wsse = sum(res.^2./v);
 
 % Calciulate
 [~, dm] = max(m);
@@ -67,8 +78,10 @@ prefMorthPref = pref - orthPref;
 oti = prefMorthPref ./(pref + orthPref);
 
 key.fitVM = FitVonMisses;
-key.Pdm = Pdm;
+key.pdm = Pdm;
 key.Poti = mean( oti > otiRaw );
+key.oti = otiRaw;
+key.wsse = wsse;
 
 % insert data
 insert( obj, key );

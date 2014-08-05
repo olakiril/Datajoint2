@@ -49,12 +49,11 @@ else
     volumename = name;
 end
 
-% select an earlier nearby directory and load the volume
 dirs = dir(['M:\Mouse\'  volumename(1:10) '*']);
 dif = bsxfun(@minus,datenum(vertcat(dirs.name),'yyyy-mm-dd_HH-MM-SS'), datenum(volumename(1:19),'yyyy-mm-dd_HH-MM-SS'));
 dirs = dirs(dif<0);
 [~,idx] = max(dif(dif<0));
-volumename = ['M:\Mouse\' dirs(idx).name '\AODAcq\' volumename];
+volumename = ['M:\Mouse\' dirs(1).name '\AODAcq\' volumename];
 [x, y, z] = fetchn(MaskCells(key1),'img_x','img_y','img_z');
 points = [x, y, z];
 fn = aodReader(volumename,'Volume','ch1');
@@ -107,8 +106,7 @@ h = figure('NumberTitle','off',...
     'WindowButtonDownFcn',@cellInput,...
     'WindowScrollWheelFcn', @doScroll);
 
-subplot(121);
-if size(data1,4)<ind;ind = size(data1,4);end
+s = subplot(121);
 image(normalize(data1(:,:,:,ind)))
 axis image
 hold on
@@ -170,13 +168,7 @@ elseif strcmp(event.Key,'insert')
     end
 elseif strcmp(event.Key,'space')
     offset = -24;
-elseif strcmp(event.Key,'return')
-    stop = true;
-    close all
-    return
 elseif strcmp(event.Key,'escape')
-    disp 'Quiting ...'
-    markId = [];
     stop = true;
     close all
     return

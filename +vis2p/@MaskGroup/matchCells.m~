@@ -17,14 +17,12 @@ end
 compareVolumes(vis2p.MaskGroup,key)
 
 while ~stop
-    pause(1)
+    pause
 end
 
 % insert data
-if ~isempty(markId)
-    markId = unique(markId);
-    for icell = 1:length(markId)
-        key.masknum = markId(icell);
-        update(vis2p.MaskTraces(key),'mask_type',type);
-    end
+markId = unique(markId);
+for icell = 1:length(markId)
+    key.masknum = markId(icell);
+    update(vis2p.MaskTraces(key),'mask_type',type);
 end

@@ -1,4 +1,7 @@
 function tpr = tpReader( obj )
+
+import vis2p.*
+
 assert( length(obj)==1 );
 [path,name] = fetch1( Experiments*obj, 'directory','file_name' );
 

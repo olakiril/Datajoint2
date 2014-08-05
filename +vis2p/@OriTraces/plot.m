@@ -14,10 +14,16 @@ params = getParams(params,varargin);
 
 keys = fetch(fc);
 
+import vis2p.*
+
 for ikey = 1:length(keys)
     key = keys(ikey);
     
     [Poti] = fetch1(OriTraces(key),'Poti');
+    % get traces [oriOut oriIn cells trials]
+    [traces] = getTraces(OriTraces,'key',key,'compute',1);
+    ori = traces';
+
     stim = fetch1(VisStims(key),'stim_file');
     AreaMean = mean(ori,1);
     oriNum = length(AreaMean);
@@ -45,7 +51,7 @@ for ikey = 1:length(keys)
     
     set(gcf,'Color',[1 1 1])
     set(gca,'Box','Off')
-    set(gca,'XLim',[0 360])
+    set(gca,'XLim',[-20 380],'xtick',0:45:360)
     
     if length(keys) > 1
         key %#ok<NOPRT>

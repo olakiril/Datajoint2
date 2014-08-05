@@ -111,6 +111,9 @@ for k = 1:length(keys); key = keys(k);
     tracessize = [];
     tracessize(:,1) = cell2mat(cellfun(@(x) size(x,1),Trace,'UniformOutput',0)');
     tracessize(:,2) = cell2mat(cellfun(@(x) size(x,2),Trace,'UniformOutput',0)');
+    if ~ isempty(cell2mat(cellfun(@(x) find(isnan(x),1,'first'),Trace,'uni',0)))
+        tracessize(:,2) = cell2mat(cellfun(@(x) find(isnan(x),1,'first'),Trace,'uni',0)')-1;
+    end
     if sum(tracessize(:)) == 0;continue;end % skip if traces are empty
     traces = cellfun(@(x) x(:,1:min(tracessize(:,2))),Trace,'UniformOutput',0);
 
