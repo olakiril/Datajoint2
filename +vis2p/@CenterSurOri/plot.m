@@ -283,7 +283,7 @@ if strcmp(type,'relAll')
         set(gca,'xtick',[],'xticklabel',[],'box','off')
         xlim([-140 185])
         if i == (ceil(sqrt(length(mtraces)))^2 - ceil(sqrt(length(mtraces))) + 1)
-            set(gca,'xtick',x,'xticklabel',x)
+            set(gca,'xtick',x,'xticklabel',x,'xticklabelrotation',90)
             
         end
     end
@@ -352,3 +352,211 @@ end
 %
 %
 % end
+
+%% plot relative curve for all
+if strcmp(type,'relAllFit')
+    
+    x = [-135 -90 -45 0 45 90 135 180];
+    keys = fetch(obj);
+    keys= keys(idx);
+    mtraces = [];
+    for i = 1:length(keys)
+        
+        traces = squeeze(AllTraces{i});
+        
+        %sort and normalize by max
+        traces = (traces(:,2:9,:));
+        mtrace = mean(mean(traces(:,:,:),3),1);
+        b = fitVonMises(double(mtrace),(0:45:315)/180*pi);
+        mtrace = VonMis((0:45:315)/180*pi,b);
+        [mx,imx] = max(mtrace);
+        
+        tr =  circshift(traces(2:end,:,:),[4-imx 4-imx 0])/mx;
+        mtraces{i} = squeeze(tr(:,4,:));
+        
+    end
+    
+    colors = ['y' 'r' 'y' 'g' 'y' 'r' 'y' 'g'];
+    xl = {'-135' '-90' '-45' '0' '45' '90' '135' '180'};
+    for i = 1:length(mtraces)
+        subplot(ceil(sqrt(length(mtraces))),ceil(sqrt(length(mtraces))),i)
+        mtrace = mean(mtraces{i},2);
+        
+        etrace = std(mtraces{i},[],2)/sqrt(size(mtraces{i},2));
+        errorbar(x',mtrace,etrace)
+        hold on
+        for ic = 1:length(mtrace)
+            plot(x(ic),mtrace(ic),'.','color',colors(ic))
+        end
+        set(gca,'xtick',[],'xticklabel',[],'box','off')
+        xlim([-140 185])
+        if i == (ceil(sqrt(length(mtraces)))^2 - ceil(sqrt(length(mtraces))) + 1)
+            set(gca,'xtick',x,'xticklabel',x,'xticklabelrotation',90)
+            
+        end
+    end
+end
+
+%% plot relative curve
+if strcmp(type,'relFit')
+    x = [-135 -90 -45 0 45 90 135 180];
+    keys = fetch(obj);
+    keys= keys(idx);
+    pdm = pdm(idx);
+    mtrace = [];
+    for i = 1:length(keys)
+
+        traces = squeeze(AllTraces{i});
+
+    %     sort and normalize by max
+        traces = mean(traces(:,2:9,:),3);
+                mtraceF = mean(mean(traces(:,:,:),3),1);
+        b = fitVonMises(double(mtraceF),(0:45:315)/180*pi);
+        mtraceF = VonMis((0:45:315)/180*pi,b);
+        [mx,imx] = max(mtraceF);
+         
+        mtrace(i,1,:) = squeeze( circshift(traces(1,:,:),[0 4-imx 0])/mx);
+        traces = circshift(traces(2:end,:,:),[4-imx 4-imx 0])/mx;
+
+        for iori = 1:size(traces,1)
+            mtrace(i,1+iori,:) = traces(iori,:);
+        end
+    end
+    trace = mtrace(:,2:end,4);
+     mtraces = mean(trace);
+      etraces = std(trace)/sqrt(size(trace,1));
+
+        errorbar(x,mtraces,etraces)
+    set(gca,'box','off')
+    ylim([0.7 1])
+    set(gca,'xtick',[-135 -90 -45 0 45 90 135 180])
+    ylabel('Relative response')
+    xlabel('Surround stimulus relative to preffered Orientation')
+end
+
+%% plot relative curve for all
+if strcmp(type,'relAllFitNew')
+    
+    x = [-135 -90 -45 0 45 90 135 180];
+    keys = fetch(obj);
+    keys= keys(idx);
+    mtraces = [];
+    for i = 1:length(keys)
+        
+        traces = squeeze(AllTraces{i});
+        
+        %sort and normalize by max
+        traces = (traces(:,2:9,:));
+        mtrace = mean(mean(traces(:,:,:),3),1);
+        b = fitVonMises(double(mtrace),(0:45:315)/180*pi);
+        mtrace = VonMis((0:45:315)/180*pi,b);
+        [mx,imx] = max(mtrace);
+        traces = mean(traces(2:end,:,:),3);
+        for iOri = 1:size(traces,1)
+            b = fitVonMises(double(traces(iOri,:)),(0:45:315)/180*pi);
+            traces(iOri,:) = VonMis((0:45:315)/180*pi,b);
+        end
+        tr =  circshift(traces,[4-imx 4-imx 0])/mx;
+        mtraces{i} = squeeze(tr(:,4,:));
+        
+    end
+    
+    colors = ['y' 'r' 'y' 'g' 'y' 'r' 'y' 'g'];
+    xl = {'-135' '-90' '-45' '0' '45' '90' '135' '180'};
+    for i = 1:length(mtraces)
+        subplot(ceil(sqrt(length(mtraces))),ceil(sqrt(length(mtraces))),i)
+        mtrace = mean(mtraces{i},2);
+        
+        etrace = zeros(size(mtrace));
+        errorbar(x',mtrace,etrace)
+        hold on
+        for ic = 1:length(mtrace)
+            plot(x(ic),mtrace(ic),'.','color',colors(ic))
+        end
+        set(gca,'xtick',[],'xticklabel',[],'box','off')
+        xlim([-140 185])
+        if i == (ceil(sqrt(length(mtraces)))^2 - ceil(sqrt(length(mtraces))) + 1)
+            set(gca,'xtick',x,'xticklabel',x,'xticklabelrotation',90)
+            
+        end
+    end
+end
+
+%% plot relative curve
+if strcmp(type,'relFitNew')
+    x = [-135 -90 -45 0 45 90 135 180];
+    keys = fetch(obj);
+    keys= keys(idx);
+    pdm = pdm(idx);
+    mtrace = [];
+    for i = 1:length(keys)
+        
+        traces = squeeze(AllTraces{i});
+        
+        %     sort and normalize by max
+        traces = mean(traces(:,2:9,:),3);
+        mtraceF = mean(mean(traces(:,:,:),3),1);
+        b = fitVonMises(double(mtraceF),(0:45:315)/180*pi);
+        mtraceF = VonMis((0:45:315)/180*pi,b);
+        [mx,imx] = max(mtraceF);
+        
+        
+        traces = mean(traces(2:end,:,:),3);
+        for iOri = 1:size(traces,1)
+            b = fitVonMises(double(traces(iOri,:)),(0:45:315)/180*pi);
+            traces(iOri,:) = VonMis((0:45:315)/180*pi,b);
+        end
+        tr =  circshift(traces,[4-imx 4-imx 0])/mx;
+        mtrace(i,:,:) = tr;
+    end
+    trace = mtrace(:,:,4);
+    mtraces = mean(trace);
+    etraces = std(trace)/sqrt(size(trace,1));
+    
+    errorbar(x,mtraces,etraces)
+    set(gca,'box','off')
+    ylim([0.7 1])
+    set(gca,'xtick',[-135 -90 -45 0 45 90 135 180])
+    ylabel('Relative response')
+    xlabel('Surround stimulus relative to preffered Orientation')
+end
+
+
+%%
+if strcmp(type,'hist')
+    keys = fetch(obj);
+    keys= keys(idx);
+    mtraces = [];
+    for i = 1:length(keys)
+
+        traces = squeeze(AllTraces{i});
+        traces = (traces(:,2:9,:));
+        mtrace = mean(mean(traces(:,:,:),3),1);
+        b = fitVonMises(double(mtrace),(0:45:315)/180*pi);
+        mtraceF = VonMis((0:45:315)/180*pi,b);
+        [mx,imx] = max(mtraceF);
+        traces = mean(traces(2:end,:,:),3);
+%         for iOri = 1:size(traces,1)
+%             b = fitVonMises(double(traces(iOri,:)),(0:45:315)/180*pi);
+%             traces(iOri,:) = VonMis((0:45:315)/180*pi,b);
+%         end
+        tr =  circshift(traces,[4-imx 4-imx 0])/max(mtraceF);
+        mtraces{i} = squeeze(tr(:,4,:));
+    end
+    tr = cat(2,mtraces{:});
+
+     si = (mean(tr([4],:)) - mean(tr([2 6],:)))./(mean(tr([4],:)) + mean(tr([2 6],:)));
+    hist(si,40)
+    hold on
+    h = findobj(gca,'Type','patch');
+    set(h,'linestyle','none')
+    set(gca,'box','off','xlim',[-max(get(gca,'xlim')) max(get(gca,'xlim'))])
+    plot([mean(si) mean(si)],get(gca,'ylim'),'r')
+    plot([0 0],get(gca,'ylim'),'k')
+    xlabel('Surround Effect Index (r_0 - r_9_0/r_0 + r_9_0)')
+    ylabel('Cell #')
+    set(gcf,'name','Surround Effect Hist')
+end
+
+function y = VonMis(x,b)
+y = b(3) * exp(b(1)*(cos((x-(b(2))))-1)) + b(4)' + b(5) * exp(b(1)*(cos((pi+x-(b(2))))-1));
