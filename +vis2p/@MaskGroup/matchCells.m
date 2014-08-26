@@ -14,7 +14,11 @@ elseif strcmp(mouse_strain,'VIP-Ai9'); type = 'VIP';
 else type = 'red';
 end
 
-compareVolumes(vis2p.MaskGroup,key)
+if strcmp(fetch1(vis2p.Scans.*obj,'scan_prog'),'AOD')
+    compareVolumes(vis2p.MaskGroup,key)
+else
+    compareChannels(vis2p.MaskGroup,key)
+end
 
 while ~stop
     pause(1)

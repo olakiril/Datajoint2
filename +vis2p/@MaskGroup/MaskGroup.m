@@ -18,7 +18,9 @@ classdef MaskGroup < dj.Relvar & dj.AutoPopulate
         function self = MaskGroup(varargin)
             self.restrict(varargin{:})
         end
-        
+        matchCells(obj)
+        compareVolumes(obj,key1,key2)
+        compareChannels(obj,key)
         insertCell( obj, key,masktype)
     end
     

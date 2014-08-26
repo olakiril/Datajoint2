@@ -15,7 +15,7 @@ classdef OriTraces < dj.Relvar & dj.AutoPopulate
 
 	properties
 		popRel = vis2p.Traces*vis2p.OriTracesParams('process = "yes"') ... 
-            *((vis2p.VisStims.*vis2p.OriTrials).*vis2p.Scans('problem_type = "none!"'))
+            *(vis2p.OriGroup('uni_ori>7').*vis2p.Scans('problem_type = "none!"'))
 	end
 
 	methods(Access=protected)

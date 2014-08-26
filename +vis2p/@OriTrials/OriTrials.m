@@ -10,9 +10,9 @@ ori_times                   : mediumblob                    # c) frame timestamp
 
 classdef OriTrials < dj.Relvar & dj.AutoPopulate
 
-	properties
-		popRel = vis2p.VisStims('exp_type = "GratingExperiment"  or exp_type = "MultDimExperiment"')
-	end
+% 	properties
+% 		popRel = vis2p.VisStims('exp_type = "GratingExperiment"  or exp_type = "MultDimExperiment"')
+% 	end
 
 	methods(Access=protected)
 
