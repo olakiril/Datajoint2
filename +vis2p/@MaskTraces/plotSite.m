@@ -19,8 +19,8 @@ while k <length(keys)
     scale = 1;
     numpoints = 1:0.5:ceil(size(traces,2)/2)+1;
     plot(bsxfun(@plus,traces*scale,numpoints(1:size(traces,2))));
-    set(gca,'XTick',0:fps*100:size(traces,1),'XTickLabel',0:100:size(traces,1)/fps,...
-        'YTick',2.5:2:size(traces,2)/2,'YTickLabel',4:4:size(traces,2))
+    set(gca,'XTick',0:fps*100:size(traces,1),'XTickLabel',0:100:size(traces,1)/fps);%,...
+%         'YTick',2.5:2:size(traces,2)/2,'YTickLabel',4:4:size(traces,2))
     hold on
     plot(x{1}-2)
      plot(y{1}-4,'r')

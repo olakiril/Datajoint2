@@ -1,5 +1,7 @@
 function plotTraces(obj,key,trace_opt,colors)
 
+import vis2p.*
+
 if nargin<4
     if nargin<3
         trace_opt = [3 17];
