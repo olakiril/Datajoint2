@@ -1,6 +1,7 @@
 function plot(obj,key)
 
-m = fetchn(RFMapRaw(key),'onpoff_rf');
+[m,rz] = fetch1(RFMapRaw(key),'onpoff_rf','rz');
+m = double(imresize(m,1/rz));
 
 for i = 1:length(m);
     [~,X] = max( squeeze(mean(m{i},3)),[],3);

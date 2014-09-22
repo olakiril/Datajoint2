@@ -2,7 +2,8 @@ function makeTuples( obj, key )
 
 [gwin, glim ] = fetch1(StatAreaParams(key),'gwin','glim');
 
-rfMap = fetch1(RFMapRaw(key),'onpoff_rf');
+[rfMap,rz] = fetch1(RFMapRaw(key),'onpoff_rf','rz');
+rfMap = double(imresize(rfMap,1/rz));
 [~,hMap] = max( squeeze(mean(rfMap,3)),[],3);
 fhMap = convn(hMap,gausswin(gwin)*gausswin(gwin)','same');
 [~,reversal] = max(fhMap,[],2);
