@@ -121,7 +121,7 @@ tp_pixelPitch = tp_fov/size(data2,2);
 offsetX = (aodLoc(1) - tpLoc(1))/tp_pixelPitch;
 offsetY = (aodLoc(2) - tpLoc(2))/tp_pixelPitch;
 height = aod_fov/tp_pixelPitch*1.1;
-pos = [size(data2,2)/2-offsetX-height/2 size(data2,2)/2+offsetY-height/2 height height];
+pos = [size(data2,2)/2+offsetX-height/2 size(data2,2)/2-offsetY-height/2 height height];
 
 %% Plot
 
