@@ -6,8 +6,7 @@ tuple = key;
 rz = 0.5;
 
 % Load trace
-tp = tpReader(Scans(key));
-trace =tp.imCh{1}(:,:,:);
+trace = getData(Scans(key));
 trace = imresize(trace,rz);
 sz = size(trace);
 trace = permute(trace,[3 1 2]);
@@ -88,7 +87,7 @@ map = squeeze(response(:,:,2,:) + response(:,:,1,:));
 map = permute(reshape(map,[size(map,1) size(map,2) sz(1) sz(2)]),[3 4 1 2]);
 % tuple.onpoff_rf = imresize(map,1/rz); 
 tuple.rz = rz;
-tuple.onpoff_rf = reshape(single(map,[size(map,1) size(map,2) size(map,3) size(map,4)]);
+tuple.onpoff_rf = reshape(single(map),[size(map,1) size(map,2) size(map,3) size(map,4)]);
 insert( obj, tuple );
 
 

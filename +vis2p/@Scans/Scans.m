@@ -33,6 +33,7 @@ classdef Scans < dj.Relvar
         end
         
         tpr = tpReader( obj )
+        data = getData(obj,channel);
        
     end
 end
