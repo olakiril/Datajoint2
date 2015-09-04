@@ -17,7 +17,7 @@ classdef MaskTracesRaw < dj.Relvar
 
 	    plotSite(obj,tracetype)
 		
-        makeTuples( obj, key,traces,traces2,coordinates)
+        makeTuples( obj, key,traces,traces2,coordinates,masknums)
 
 		function self = MaskTracesRaw(varargin)
 			self.restrict(varargin{:})

@@ -5,7 +5,7 @@ scan_idx        : smallint unsigned     # scan number within this experiment, fo
 ---
 file_name                   : varchar(61)                   # m) file prefix if different from the default YYMMDD
 scan_prog="MPScan"          : enum('AOD','Unirec','Imager','ScanImage','MPScan')# m) Scanning program
-aim="orientation tuning"    : enum('orientation tuning','visual response','injection','patching','spontaneous','receptive field mapping','stack','multi-tuning','old rf maping','Intrinsic Imaging','vesselMap','shock','other')# m) the aim of this scan
+aim="orientation tuning"    : enum('AF Imaging','orientation tuning','visual response','injection','patching','spontaneous','receptive field mapping','stack','multi-tuning','old rf maping','Intrinsic Imaging','vesselMap','shock','other')# m) the aim of this scan
 stim_engine="State"         : enum('State','VisStim','other','None')# m) Visual stimulus generating software
 lens=null                   : tinyint unsigned              # m) lens magnification
 mag=null                    : decimal(4,2) unsigned         # m) scan magnification

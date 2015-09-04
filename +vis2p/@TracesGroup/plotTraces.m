@@ -10,8 +10,9 @@ if nargin<4
 end
 
 % get trace
-fps = fetchn( Movies(key), 'fps');
-clf
+fps = fetchn( Movies(key).*TracesGroup, 'fps');
+% clf
+% subplot(4,1,1:3)
 hold on
 
 
@@ -19,8 +20,7 @@ for iTrace = 1:length(trace_opt)
     traces = fetchn(Traces(key,['trace_opt =' num2str(trace_opt(iTrace))]),'trace');
 
     traces = cell2mat(traces');
-traces = traces*2;
-    plot(bsxfun(@plus,traces*2,1:size(traces,2)),'color',colors(iTrace,:));
+        plot((0:1:(size(traces,1)-1))/fps,bsxfun(@plus,traces*1,1:size(traces,2)),'color',colors(iTrace,:));
 end
 
 set(gca,'XTick',0:fps*100:size(traces,1),'XTickLabel',0:100:size(traces,1)/fps)

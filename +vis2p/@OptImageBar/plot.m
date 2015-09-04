@@ -17,17 +17,17 @@ keys = fetch(obj);
 
 for ikey = 1:length(keys)
       
-    [imP vessels imA] = fetch1(vis2p.OptImageBar(keys(ikey)),'ang','vessels','amp');
+    [imP, vessels, imA] = fetch1(vis2p.OptImageBar(keys(ikey)),'ang','vessels','amp');
     
     imA(imA>prctile(imA(:),99)) = prctile(imA(:),99);
     
-    [h1 h2] = hist(reshape(imP(imP~=0),[],1),100);
-    mxv = h2(h1 == max(h1));
-    imP = imP - mxv(1);
-    imP(imP<-3.14) = imP(imP<-3.14) +3.14*2;
-    imP(imP>3.14) = imP(imP>3.14) -3.14*2;
-    imP(imP<0) = -exp((imP(imP<0)+ params.range)*params.exp);
-    imP(imP>0) = exp((abs(imP(imP>0)- params.range))*params.exp);
+%     [h1 h2] = hist(reshape(imP(imP~=0),[],1),100);
+%     mxv = h2(h1 == max(h1));
+%     imP = imP - mxv(1);
+%     imP(imP<-3.14) = imP(imP<-3.14) +3.14*2;
+%     imP(imP>3.14) = imP(imP>3.14) -3.14*2;
+%     imP(imP<0) = -exp((imP(imP<0)+ params.range)*params.exp);
+%     imP(imP>0) = exp((abs(imP(imP>0)- params.range))*params.exp);
     
     
     h = normalize(imP);

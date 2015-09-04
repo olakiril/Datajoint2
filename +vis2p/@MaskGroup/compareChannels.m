@@ -69,7 +69,7 @@ end
     
 clf
 image(normalize(data1(:,:,:)))
-axis image
+% axis image
 axis off
 hold on
 celli = find(pointi(:,3)==0);

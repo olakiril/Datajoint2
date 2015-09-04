@@ -1,7 +1,7 @@
 function makeTuples( obj, key )
 
 % get stim file
-stim = fetch1(VisStims(key),'stim_file');
+stim = fetch1(vis2p.VisStims(key),'stim_file');
 
 % get the different stimulus conditions
 uniStims = stim.params.constants.movieStat;
@@ -23,14 +23,14 @@ for iMovie = 1:length(uniStims)
             insert( obj, key );
             
             % fill the dependant tables
-            makeTuples(StatsPresents,key,stim,uniStims(iMovie),uniTrigger(iTrigger));
+            makeTuples(vis2p.StatsPresents,key,stim,uniStims(iMovie),uniTrigger(iTrigger));
         end
     else
         % insert
         insert( obj, key );
         
         % fill the dependant tables
-        makeTuples(StatsPresents,key,stim,uniStims(iMovie));
+        makeTuples(vis2p.StatsPresents,key,stim,uniStims(iMovie));
     end
 end
 

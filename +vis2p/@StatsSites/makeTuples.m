@@ -1,5 +1,7 @@
 function makeTuples( obj, key )
 
+import vis2p.* 
+
 % get traces
 traces = getTraces(StatsSites,'key',key,'compute',1);
 

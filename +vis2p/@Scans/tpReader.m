@@ -12,6 +12,17 @@ if strcmp(scan_prog,'MPScan')
 elseif strcmp(scan_prog,'ScanImage')
     filename = getLocalPath([path '/' name]);
     tpr = tpMethods.Reader(filename);
+elseif strcmp(scan_prog,'AOD')
+    aim = fetch1(obj,'aim');
+    if strcmp(aim,'stack'); type = 'Volume'; else type = 'Functional';end
+    dirs = dir(['M:\Mouse\' name(1:10) '*']);
+    names = vertcat(dirs.name);
+    timediff = str2num(names(:,[12 13 15 16 18 19]))- str2num( name([12 13 15 16 18 19]));
+    timeind = find(timediff<0);
+    [~,i] = max(timediff(timeind));
+    itime = timeind(i);
+    filename = ['M:\Mouse\' dirs(itime).name '\AODAcq\' name];
+    tpr = aodReader(filename,type);
 else
     disp 'Can not read!'
     tpr = [];

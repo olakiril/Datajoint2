@@ -3,7 +3,9 @@ global im
 global ih
 global im2
 global ih2
-    
+
+import vis2p.*
+
 if nargin<2 || isempty(tracetype)
     tracetype = 'calcium_trace';
 end
@@ -14,9 +16,11 @@ key = fetch(obj);
 isAOD = strcmp(fetch1(Scans(key),'scan_prog'),'AOD');
 
 if ~isAOD
-    tp = tpReader(Scans(key));
-    im = getAlignedImagingChannel(tp,1);
-    im2 = getImagingChannel(tp,1);
+%     tp = tpReader(Scans(key));
+%     im = getAlignedImagingChannel(tp,1);
+%     im2 = getImagingChannel(tp,1);
+      im = getFrames(Movies(key),1);
+        im2 = getFrames(Movies(key),1,1:size(im,3),false,false);
 end
 
 if strcmp(tracetype,'norm')
@@ -47,9 +51,9 @@ plot(bsxfun(@plus,traces2*scale,numpoints(1:size(traces2,2))),'k');hold on
 plot(bsxfun(@plus,traces*scale,numpoints(1:size(traces,2))));
 set(gca,'XTick',0:fps*100:size(traces,1),'XTickLabel',0:100:size(traces,1)/fps,...
     'YTick',2.5:2:size(traces,2)/2,'YTickLabel',4:4:size(traces,2))
-plot(normalize(x{1})-2)
-plot(normalize(y{1})-4,'r')
-plot(ball-6,'g')
+% plot(normalize(x{1})-2)
+% plot(normalize(y{1})-4,'r')
+% plot(ball-6,'g')
 % plot(normalize(eye)-7,'y')
 xlabel('time(sec)')
 ylabel('cell #')

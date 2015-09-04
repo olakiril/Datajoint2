@@ -3,7 +3,7 @@ function makeTuples( obj, key )
 import vis2p.*
 
 tuple = key;
-rz = 0.5;
+rz = 0.25;
 
 % Load trace
 trace = getData(Scans(key));
@@ -82,8 +82,8 @@ for iUni = 1:size(uni,1)
     response(uni(iUni,1),uni(iUni,2),uni(iUni,3),:) = mean(bTrace(indx,:));
 end
 
-% get the trial averages
-map = squeeze(response(:,:,2,:) + response(:,:,1,:));
+% get the color averages
+map = squeeze(sum(response,3));
 map = permute(reshape(map,[size(map,1) size(map,2) sz(1) sz(2)]),[3 4 1 2]);
 % tuple.onpoff_rf = imresize(map,1/rz); 
 tuple.rz = rz;

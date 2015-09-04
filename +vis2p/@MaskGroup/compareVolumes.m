@@ -321,12 +321,12 @@ image(normalize(data2(:,:,:,ind)))
 axis image
 axis off
 
-if ~isempty(pos)
-    rectH = imrect(gca,pos);
-    if zoom
-        p = getPosition(rectH);
-        xlim([p(1) p(1)+p(3)])
-        ylim([p(2) p(2)+p(4)])
-    end
-end
+% if ~isempty(pos)
+%     rectH = imrect(gca,pos);
+%     if zoom
+%         p = getPosition(rectH);
+%         xlim([p(1) p(1)+p(3)])
+%         ylim([p(2) p(2)+p(4)])
+%     end
+% end
 end

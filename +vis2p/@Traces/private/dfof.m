@@ -1,7 +1,7 @@
 function [traces,out] = dfof(traces,fps,traceOpt)
 
 traces = traces(:,:,1);
-
+traces = traces+495424;
 if isfield(traceOpt,'highPass') && ~isnan(traceOpt.highPass)
     if traceOpt.highPass>0
         k = hamming(round(fps/traceOpt.highPass)*2+1);

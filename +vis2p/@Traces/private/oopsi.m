@@ -21,7 +21,7 @@ else
 end
  fitf = @(x) 0.4723*exp(-((x-16.46)/5.699)^2) + 0.3295*exp(-((x-9.802)/3.988)^2);
 qual = nan(size(traces,2),1);
-for iTrace = 1:size(traces,2)
+parfor iTrace = 1:size(traces,2)
     t = traces(:,iTrace);
     if  traceOpt.lamda<0
         k = kurtosis(traces(:,iTrace));

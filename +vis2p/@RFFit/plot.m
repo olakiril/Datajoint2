@@ -10,4 +10,4 @@ cc=a(5)*sqrt(prod(a(3:4)));
 C(1,2)=cc; 
 C(2,1)=cc;
 
-plotGauss(m,C,2,params);
+plotGaussRF(m,C,2,params);

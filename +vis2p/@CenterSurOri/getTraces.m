@@ -53,8 +53,8 @@ for k = 1:length(keys); key = keys(k);
     end
     
     % select cells on rf quality
-    if ~isnan(rsThr);Tr = Tr.*RFFit(key,['snr >' num2str(rsThr)]);end
-    if ~isnan(rpThr);Tr=Tr.*RFStats(key,['onpoff_p<' num2str(rpThr)]);end
+    if ~isnan(rsThr);Tr = Tr & RFFit(key,['snr >' num2str(rsThr)]);end
+    if ~isnan(rpThr);Tr=Tr & RFStats(key,['onpoff_p<' num2str(rpThr)]);end
     
     % get trace
     traces = fetchn(Tr,'trace');
@@ -63,7 +63,7 @@ for k = 1:length(keys); key = keys(k);
     fps    = fetch1( Movies(key), 'fps' );
     
     % Load times of the trace
-    times = fetch1(VisStims(key).*CenterSurTrials,'frame_timestamps');
+    times = fetch1(VisStims(key) & CenterSurTrials,'frame_timestamps');
     
     % equalize traces 2 times if length difference is 1
     if abs(length(tracesM) - length(times)) == 1

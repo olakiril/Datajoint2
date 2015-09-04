@@ -8,13 +8,14 @@ spot_r2                     : longblob                      # r-squared of total
 spot_fp                     : longblob                      # total response p-value (F-test)
 spot_psth                   : longblob                      # average stimulus-locked response
 vessels=null                : mediumblob                    # 
+stim_loc                    : mediumblob                    #
 %}
 
 
 classdef OptImage < dj.Relvar & dj.AutoPopulate
 
 	properties
-		popRel = vis2p.VisStims('exp_type = "MultDimExperiment"').*vis2p.Scans('aim = "Intrinsic Imaging"')
+		popRel = vis2p.VisStims('exp_type = "MultDimExperiment"') & (vis2p.Scans('aim = "Intrinsic Imaging"') | vis2p.Scans('aim = "AF Imaging"'))
 	end
 
 	methods(Access=protected)
@@ -31,7 +32,8 @@ classdef OptImage < dj.Relvar & dj.AutoPopulate
 
 
 		 plot(obj,varargin)
-
+         [data,times,trials] = getData(obj,key)
+         plotRaw(obj)
 	end
 
 end

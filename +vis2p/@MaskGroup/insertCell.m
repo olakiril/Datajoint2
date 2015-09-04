@@ -3,11 +3,16 @@ function insertCell( obj, key,masktype)
 import vis2p.*
 
 masknum = [];
-if strcmp(fetch1(Scans(key),'scan_prog'),'MPScan')
+if strcmp(fetch1(Scans(key),'scan_prog'),'MPScan') || strcmp(fetch1(Scans(key),'scan_prog'),'ScanImage')
     %%%% Detect Spikes %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     [lens,mag] = fetch1(Scans(key),'lens','mag');
-    pixelPitch = 11000/512/mag/lens;
-    
+    imChan = fetch1(Movies(key),'raw_green');
+    if strcmp(fetch1(Scans(key),'scan_prog'),'MPScan')
+        pixelPitch = 11000/512/mag/lens;
+    else
+        pitch = 11000/mag/lens;
+        pixelPitch = pitch/size(imChan,2);
+    end
     %%%% Identify patched Cell %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     f = plot(MaskGroup(key));
     

@@ -8,9 +8,10 @@ for i = 1:length(m);
     [~,X] = max( squeeze(mean(im,3)),[],3);
     [~,Y] = max( squeeze(mean(im,4)),[],3);
     clf;
-    set(gcf,'position',[680   756   660   342])
+%     set(gcf,'position',[680   756   660   342])
     subplot(2,4,1:3)
     imagesc(X);
+    axis image
     title('Azimuth')
 %     axis off
     c1 = colorbar;
@@ -18,6 +19,7 @@ for i = 1:length(m);
     set(c1,'xtick',[])
     subplot(2,4,5:7)
     imagesc(Y);
+    axis image
     title('Elevation')
 %     axis off
     c2 = colorbar;

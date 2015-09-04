@@ -14,7 +14,7 @@ INDEX(mouse_id,exp_date,scan_idx,stim_idx)
 classdef OriTraces < dj.Relvar & dj.AutoPopulate
 
 	properties
-		popRel = vis2p.Traces*vis2p.OriTracesParams('process = "yes"') ... 
+		popRel = vis2p.Traces('masknum>0')*vis2p.OriTracesParams('process = "yes"') ... 
             *(vis2p.OriGroup('uni_ori>7').*vis2p.Scans('problem_type = "none!"'))
 	end
 

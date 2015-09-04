@@ -8,7 +8,6 @@ function [traceDFoF,out,traceOpts] = calcDFoF(traces,Fps,traceOpts) %#ok<INUSD>
 
 % get rid over any other traces
 traces = traces(:,:,1);
-
 params.WindowBaseline = 15;
 params.Percentile = 10;
 traceDFoF = nan(size(traces));
@@ -27,7 +26,7 @@ for itrace = 1:size(traces,2)
         
         traceWin = reshape(traceWin, winSize, []);
         segMin = prctile((traceWin)',10,2);
-        
+
         % Prepare interpolation
         segPos = (winSize/2) + winSize * (0:length(segMin)-1);
         segPos(1) = 1;

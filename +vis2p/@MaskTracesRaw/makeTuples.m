@@ -1,4 +1,4 @@
-function makeTuples( obj, key,traces,traces2,coordinates)
+function makeTuples( obj, key,traces,traces2,coordinates,masknums)
 
 import vis2p.*
 
@@ -14,10 +14,17 @@ traces2(:,ind(sind==1))     = []; % remove extra cells
 
 for itrace = 1:size(traces,2)
     tuple=key;
-    tuple.masknum = itrace;
-    tuple.mask_type = 'neuron';
+    tuple.masknum = masknums(itrace);
+    try
+        mtype = fetch1(MaskTraces(tuple),'mask_type');
+    catch
+        mtype = 'neuron';
+    end
+    tuple.mask_type = mtype;
     tuple.calcium_trace = single(traces(:,itrace));
-    tuple.red_trace = single(traces2(:,itrace));
+    try
+         tuple.red_trace = single(traces2(:,itrace));
+    end
     insert( obj, tuple );
 end
 

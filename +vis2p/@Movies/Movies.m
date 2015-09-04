@@ -23,7 +23,7 @@ raster_correction=null      : mediumblob                    #
 classdef Movies < dj.Relvar & dj.AutoPopulate
     
     properties
-        popRel = vis2p.Scans('aim <> "stack" and problem_type = "none!"').*vis2p.Experiments('process = "yes"')
+        popRel = vis2p.Scans('aim <> "stack" and problem_type = "none!"') & vis2p.Experiments('process = "yes"')
     end
     
     methods(Access=protected)
@@ -41,8 +41,9 @@ classdef Movies < dj.Relvar & dj.AutoPopulate
         
         do( obj )
         
-        frames = getFrames(obj, channel, frameIdx, raster, mc)
+        frames = getFrames(obj, channel, frameIdx, raster, mc,scim)
 
+        volume = getAODVolume(obj,key)
         
         plotEye(obj,clim)
         

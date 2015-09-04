@@ -108,7 +108,7 @@ for k = 1:length(keys)
 end
 
 % collapse same sites
-if length(keys)>1 && params.collapse
+if length(keys)>1 && params.collapse && ~all(cellfun(@isempty,T));
     keys = arrayfun(@(x) structfun(@(x) num2str(x),x,'uniformoutput',0),keys);
     if params.compute || params.compute2;
         keys = struct2cell(arrayfun(@(x) rmfield(x,'stim_idx'),keys));

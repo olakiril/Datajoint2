@@ -10,7 +10,7 @@ fps                         : double                        # i) frames per seco
 classdef MaskGroupRaw < dj.Relvar & dj.AutoPopulate
     
     properties (Constant)
-        popRel = vis2p.Movies.*vis2p.Scans('scan_prog = "AOD"').*vis2p.Experiments('process = "yes"').*vis2p.VisStims
+        popRel = vis2p.Movies.*vis2p.Scans('scan_prog = "AOD" or scan_prog = "ScanImage"').*vis2p.Experiments('process = "yes"').*vis2p.VisStims
     end
     
     methods(Access=protected)

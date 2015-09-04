@@ -125,7 +125,7 @@ elseif strcmp(fetch1(Scans(key),'scan_prog'),'ScanImage')
     %% ScanImage file
     
     % get mouse info to see whether to compute channel 2
-    transMice = {'NesCre-ReYFP','Viat-Ai9','SST-Ai9','PV-Ai9','PV-AAVArch','SST-AAVArch'};
+    transMice = {'NesCre-ReYFP','Viat-Ai9','SST-Ai9','PV-Ai9','PV-AAVArch','SST-AAVArch','Nestin-Ai9'};
     rDyes = {'FL4,SR','FL4,CR','SR','CR','OGB,SR','OGB,SR,CR','OGB,CR'};
     redMouse = any(strcmp(fetch1(Mice(key),'mouse_strain'),transMice));
     redChannel = any(strcmp(fetch1(Experiments(key),'dyes'),rDyes));
@@ -149,7 +149,8 @@ elseif strcmp(fetch1(Scans(key),'scan_prog'),'ScanImage')
     disp 'raster correction'
     raster = tpMethods.RasterCorrection.fit(movie, [3 5]);
     tuple.raster_correction = raster;
-    rmovie = tpMethods.RasterCorrection.apply(movie, raster);
+    rmovie = single(tpMethods.RasterCorrection.apply(movie, raster));
+    clear movie 
     
     disp 'motion correction...'
     assert(scim.hdr.acq.fastScanningX==1 & scim.hdr.acq.fastScanningY==0, 'x must be the fast axis')
@@ -161,25 +162,25 @@ elseif strcmp(fetch1(Scans(key),'scan_prog'),'ScanImage')
     disp 'averaging frames...'
     tuple.affine_green = single(mean(movie,3));
     
-    %     disp 'computing subpixel correction...'
-    %     tuple.motion_correction.warp_degree = 2;
-    %     tuple.motion_correction.xwarp_degree = 4;
-    %     yWarp = tpMethods.YWarp(affine_green);
-    %     degrees = [tuple.motion_correction.warp_degree*[1 1]...
-    %         tuple.motion_correction.xwarp_degree];
-    %     tuple.motion_correction.warp_polynom = ...
-    %         zeros(size(movie,3), sum(degrees)+2, 'single');
-    %     p = zeros(1, sum(degrees)+2);
-    %     for iFrame = 1:size(movie,3)
-    %         if ~mod(sqrt(iFrame),1);fprintf('[%3d/%d]\n',iFrame,size(movie,3));end
-    %
-    %         % fit polynomials
-    %         yWarp.fit(rmovie(:,:,iFrame), degrees, p);
-    %         p = yWarp.coefs;
-    %         tuple.motion_correction.warp_polynom(iFrame, :) = p;
-    %     end
-    %     tuple.affine_green = calcmean(getFrames(scim, 1, [], ...
-    %         tuple.raster_correction, tuple.motion_correction),nframes);
+%         disp 'computing subpixel correction...'
+%         tuple.motion_correction.warp_degree = 2;
+%         tuple.motion_correction.xwarp_degree = 4;
+%         yWarp = tpMethods.YWarp(tuple.affine_green);
+%         degrees = [tuple.motion_correction.warp_degree*[1 1]...
+%             tuple.motion_correction.xwarp_degree];
+%         tuple.motion_correction.warp_polynom = ...
+%             zeros(size(movie,3), sum(degrees)+2, 'single');
+%         p = zeros(1, sum(degrees)+2);
+%         for iFrame = 1:size(movie,3)
+%             if ~mod(sqrt(iFrame),1);fprintf('[%3d/%d]\n',iFrame,size(movie,3));end
+%     
+%             % fit polynomials
+%             yWarp.fit(double(rmovie(:,:,iFrame)), degrees, p);
+%             p = yWarp.coefs;
+%             tuple.motion_correction.warp_polynom(iFrame, :) = p;
+%         end
+%         tuple.affine_green = calcmean(getFrames(Movies, 1, [], ...
+%             tuple.raster_correction, tuple.motion_correction,movie),nframes);
     
     % do it for second channel
     if scim.hasChannel(2) && redMouse || scim.hasChannel(2) && redChannel
@@ -243,7 +244,12 @@ elseif strcmp(fetch1(Scans(key),'scan_prog'),'AOD')
         s2 = 0;
     else
         if ~isempty(Scans(key,'exp_date > "2012-05-01"'))
-            volumename = ['M:\Mouse\' dirs(i).name '\AODAcq\' volumename{1}];
+            timediff = str2num(names(:,[12 13 15 16 18 19]))- str2num( volumename{1}([12 13 15 16 18 19]));
+            timeind = find(timediff<0);
+            [~,i] = max(timediff(timeind));
+            itime = timeind(i);
+        
+            volumename = ['M:\Mouse\' dirs(itime).name '\AODAcq\' volumename{1}];
             fn = aodReader(volumename,'Volume');
             
             s = fn(:,:,:,1);

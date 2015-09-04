@@ -12,7 +12,8 @@ direction=0                 : smallint                      #
 classdef OptImageBar < dj.Relvar & dj.AutoPopulate
 
 	properties (Constant)
-		popRel = vis2p.Scans('aim = "Intrinsic Imaging" and scan_prog = "Imager" and problem_type = "none!"').*vis2p.VisStims('exp_type = "other" or exp_type = "BarMappingExperiment"')
+		popRel = vis2p.Scans('problem_type = "none!"')...
+            *vis2p.VisStims('exp_type = "BarMappingExperiment" or exp_type = "FancyBarExperiment"')
     end
 
     

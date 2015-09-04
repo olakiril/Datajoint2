@@ -1,4 +1,4 @@
-function frames = getFrames(self, channel, frameIdx, raster, mc)
+function frames = getFrames(self, channel, frameIdx, raster, mc,scim)
 
 % function frames = getFrames(self, channel, frameIdx, raster, warp, wDeg)
 %
@@ -8,23 +8,23 @@ function frames = getFrames(self, channel, frameIdx, raster, mc)
 
 import vis2p.*
 
-if isobject(self)
+if nargin<6
     % get scan
-    scim = tpReader(Scans.*self);
-else
-    scim = self;
+    scim = tpReader(Scans & self);
 end
+motion = false; 
 
 % chech for input parameters
 if nargin<5; mc = fetch1(self, 'motion_correction');
-    motion = mc;
+    motion = true;
 if nargin<4; raster = fetch1(self,'raster_correction');
     if isnan(raster); raster = false; end
 if nargin<3; frameIdx = 1:fetch1(self,'nframes');
 if nargin<2; channel = 1;end;end;end;end %#ok<*ALIGN>
 
 %  motion = mc.warp_degree;
-%     degrees = [mc.warp_degree mc.warp_degree size(mc.warp_polynom,2)-2*(mc.warp_polynom+1)];
+%    degrees = [mc.warp_degree*[1 1] mc.xwarp_degree];
+% %     degrees = [mc.warp_degree mc.warp_degree size(mc.warp_polynom,2)-2*(mc.warp_polynom+1)];
 %     if isnan(mc.warp_degree);  mc.warp_degree = false; end;end;end;end;end
 
 % read specified frames
@@ -37,9 +37,9 @@ if raster
 end
 
 % apply motion compansation
-if mc
+if motion
     disp 'motion correction...'
-    frames = tpMethods.MotionCorrection.apply(frames, motion);
+    frames = tpMethods.MotionCorrection.apply(frames, mc);
 end
 % % apply motion compansation
 % if mc.warp_degree
