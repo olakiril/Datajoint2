@@ -19,14 +19,15 @@ classdef Licks < dj.Relvar
             figure
             set(gcf,'name','Correct Stimuli')
             k = [];
-            tmst = 'session_timestamp>"2015-06-30 09:00:00"';
+%             tmst = 'session_timestamp>"2015-06-30 09:00:00"';
+            tmst = opts;
             mice = unique(fetchn(beh.Session & self & 'exp_type > "Freerun"','mouse_id'));
             for ii = 1:length(mice)
                 
                 k.mouse_id = mice(ii);
-                p_names = unique(fetchn(beh.Session & k & tmst,'stimuli'));
-                p_types = unique(fetchn(beh.Session & k & tmst,'rewarded_stimuli'));
-                k.period_type = p_types{1};
+                p_names = unique(fetchn(beh.Session & k & tmst & 'exp_type>"Freerun"','stimuli'));
+                p_types = unique(fetchn(beh.Session & k & tmst & 'exp_type>"Freerun"','rewarded_stimuli'));
+                k.period_type = p_types{end};
                 
                 wtimes = double(fetchn(beh.StimPeriods & k & tmst,'timestamp'));
                 ltimes = double(fetchn(beh.Licks & k & tmst,'timestamp'));
@@ -47,7 +48,7 @@ classdef Licks < dj.Relvar
                 end
                 set(gca,'ydir','reverse','box','off')
                 xl = get(gca,'xlim');
-                xlim([-1 10])
+                xlim([-1 5])
                 ylim([0 length(wtimes)+1])
                 plot([0 0],[1 length(wtimes)],'b')
                 plot([1 1],[1 length(wtimes)],'--r')
@@ -66,10 +67,10 @@ classdef Licks < dj.Relvar
                 
                 k.mouse_id = mice(ii);
                 
-                p_names = unique(fetchn(beh.Session & k & tmst,'stimuli'));
-                periods =  strsplit(p_names{1},',');
-                p_types = unique(fetchn(beh.Session & k & tmst,'rewarded_stimuli'));
-                k.period_type = p_types{1};
+                p_names = unique(fetchn(beh.Session & k & tmst & 'exp_type>"Freerun"','stimuli'));
+                periods =  strsplit(p_names{end},',');
+                p_types = unique(fetchn(beh.Session & k & tmst & 'exp_type>"Freerun"','rewarded_stimuli'));
+                k.period_type = p_types{end};
                 
                 % wrong stimulus
                 idx = ~strcmp(periods,k.period_type);
@@ -98,7 +99,7 @@ classdef Licks < dj.Relvar
                 end
                 set(gca,'ydir','reverse','box','off')
                 xl = get(gca,'xlim');
-                xlim([-1 10])
+                xlim([-1 5])
                 ylim([0 length(wtimes)+1])
                 plot([0 0],[1 length(wtimes)],'b')
                 plot([1 1],[1 length(wtimes)],'--r')

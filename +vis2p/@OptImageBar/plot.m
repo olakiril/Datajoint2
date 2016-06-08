@@ -1,4 +1,4 @@
-function  [iH iS iV] = plot(obj,varargin)
+function  [iH, iS, iV] = plot(obj,varargin)
 
 % plot(obj)
 %
@@ -10,6 +10,7 @@ params.sigma = 2; %sigma of the gaussian filter
 params.exp = 1; % exponent factor of rescaling
 params.reverse = 0; % reverse the axis
 params.range = 3.14/2; %angle limit
+params.subplot = [1 2];
 
 params = getParams(params,varargin);
 
@@ -21,13 +22,13 @@ for ikey = 1:length(keys)
     
     imA(imA>prctile(imA(:),99)) = prctile(imA(:),99);
     
-%     [h1 h2] = hist(reshape(imP(imP~=0),[],1),100);
-%     mxv = h2(h1 == max(h1));
-%     imP = imP - mxv(1);
-%     imP(imP<-3.14) = imP(imP<-3.14) +3.14*2;
-%     imP(imP>3.14) = imP(imP>3.14) -3.14*2;
-%     imP(imP<0) = -exp((imP(imP<0)+ params.range)*params.exp);
-%     imP(imP>0) = exp((abs(imP(imP>0)- params.range))*params.exp);
+    [h1, h2] = hist(reshape(imP(imP~=0),[],1),100);
+    mxv = h2(h1 == max(h1));
+    imP = imP - mxv(1);
+    imP(imP<-3.14) = imP(imP<-3.14) +3.14*2;
+    imP(imP>3.14) = imP(imP>3.14) -3.14*2;
+    imP(imP<0) = -exp((imP(imP<0)+ params.range)*params.exp);
+    imP(imP>0) = exp((abs(imP(imP>0)- params.range))*params.exp);
     
     
     h = normalize(imP);
@@ -45,19 +46,27 @@ for ikey = 1:length(keys)
         set(gcf,'position',[50 200 920 435])
         set(gcf,'name',['OptMap ' keys(ikey).exp_date ' ' num2str(keys(ikey).scan_idx)])
         
-        subplot(121)
-        im = (hsv2rgb(cat(3,h,cat(3,s,v))));
-        im = imgaussian(im,params.sigma);
-        imshow(im)
-        if params.reverse
-            set(gca,'xdir','reverse')
+        if any(params.subplot==1) && any(params.subplot==2)
+            subplot(121)
+        end
+        if any(params.subplot==1)
+            im = (hsv2rgb(cat(3,h,cat(3,s,v))));
+            im = imgaussian(im,params.sigma);
+            imshow(im)
+            if params.reverse
+                set(gca,'xdir','reverse')
+            end
         end
         
+        if any(params.subplot==1) && any(params.subplot==2)
         subplot(122)
+        end
+        
+        if any(params.subplot==2)
         im = (hsv2rgb(cat(3,h,cat(3,s2,v2))));
         im = imgaussian(im,params.sigma);
         imshow(im)
-        
+        end
         if params.reverse
             set(gca,'xdir','reverse')
         end

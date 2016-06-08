@@ -81,12 +81,13 @@ if strcmp(fetch1(Scans(key),'scan_prog'),'Imager')
     k = [];
     k.exp_date = key.exp_date;
     k.mouse_id = key.mouse_id;
-    vesObj = Scans(k,'stim_engine = "None" and scan_prog = "Imager"');
+    vesObj = Scans(k,'stim_engine = "None" and scan_prog = "Imager" and aim = "vesselMap"');
     if ~isempty(vesObj)
-        scans = fetchn(vesObj,'scan_idx');
-        [~,i] = min(abs(key.scan_idx - scans)); % select the closest scan
+        [scans, name] = fetchn(vesObj,'scan_idx','file_name');
+%         [~,i] = min(abs(key.scan_idx - scans)); % select the closest scan
+        aim_idx = find(strcmp(name,'vessels'));
         keys = fetch(vesObj);
-        name = fetch1(Scans(keys(i)),'file_name');
+        name = fetch1(Scans(keys(aim_idx )),'file_name');
         vessels = squeeze(mean(getOpticalData([path '/' name '.h5'])));
     end
 end

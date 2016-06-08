@@ -51,7 +51,7 @@ classdef Session < dj.Relvar
                         p_names = unique(fetchn(session & k ,'stimuli'));
                         resp_period = fetch1(session & k,'response_period');
                         
-                        if ~strcmp('.png',p_types)
+                        if isempty(strfind(p_types,'.png'))
                             A = textread(['Z:\users\Manolis\Labview\Water Conditioning\stimuli\' p_types{1} '.txt'],'%s');
                             rperiods = A{2};
                             p_names =A{1};

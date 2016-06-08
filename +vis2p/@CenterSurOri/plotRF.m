@@ -9,11 +9,11 @@ import vis2p.*
 % get stims files
 [kk.x, kk.y, kk.exp_date] = fetch1(vis2p.Scans(k),'x','y','exp_date');
 
-stims = fetchn(VisStims('exp_type = "MouseDotMapping"').*vis2p.Scans(kk,'problem_type = "none!"'),'stim_file');
+stims = fetchn(VisStims('exp_type = "MouseDotMapping"') & vis2p.Scans(kk,'problem_type = "none!"'),'stim_file');
 stimE = fetch1(VisStims(k,'exp_type = "CenterSurround"'),'stim_file');
 kkk.masknum = k.masknum;
 if length(stims)>1
-    [dS, stidx, scan] = fetchn(vis2p.RFFit(kkk,'rf_opt_num = 3').*vis2p.Scans(kk,'problem_type = "none!"'),'snr','stim_idx','scan_idx');
+    [dS, stidx, scan] = fetchn(vis2p.RFFit(kkk,'rf_opt_num = 3') & vis2p.Scans(kk,'problem_type = "none!"'),'snr','stim_idx','scan_idx');
     [~,idx] = max(dS);
     k.stim_idx = stidx(idx);
     k.scan_idx = scan(idx);

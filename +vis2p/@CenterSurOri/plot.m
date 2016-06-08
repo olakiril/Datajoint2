@@ -545,7 +545,7 @@ if strcmp(type,'hist')
     end
     tr = cat(2,mtraces{:});
 
-     si = (mean(tr([4],:)) - mean(tr([2 6],:)))./(mean(tr([4],:)) + mean(tr([2 6],:)));
+    si = (mean(tr([1 4],:)) - mean(tr([2 6],:)))./(mean(tr([1 4],:)) + mean(tr([2 6],:)));
     hist(si,40)
     hold on
     h = findobj(gca,'Type','patch');

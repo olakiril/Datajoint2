@@ -10,7 +10,7 @@ if nargin<4
 end
 
 % get trace
-fps = fetchn( Movies(key).*TracesGroup, 'fps');
+fps = fetchn( Movies(key) & TracesGroup, 'fps');
 % clf
 % subplot(4,1,1:3)
 hold on

@@ -259,18 +259,18 @@ elseif strcmp(fetch1(Scans(key),'scan_prog'),'AOD')
             s2 = [];
         else
             volumename = getLocalPath([path '/' volumename{1} '.h5']);
-            [s x y z s2] = loadAODStack(volumename);
+            [s, x, y, z, s2] = loadAODStack(volumename);
         end
     end
     
     if ~isempty(Scans(key,'exp_date > "2012-05-01"'))
-        [traces t] = loadAODTraces(filename);
+        [traces, t] = loadAODTraces(filename);
     else
-        [traces t] = loadTraces(filename);
+        [traces, t] = loadTraces(filename);
     end
     
     try
-        [xpos ypos zpos times] = trackMotion(filename);
+        [xpos, ypos, zpos, times] = trackMotion(filename);
         tuple.alignXshifts = interp1(times,xpos,t2);
         tuple.alignYshifts = interp1(times,ypos,t2);
         tuple.alignZshifts = interp1(times,zpos,t2);
@@ -307,6 +307,26 @@ elseif strcmp(fetch1(Scans(key),'scan_prog'),'Unirec')
     tuple.nframes      = getNbSamples(br);
     tuple.fps          = getSamplingRate(br);
     tuple.raw_green    = [];
+    tuple.raw_red      = [];
+    
+    insert( obj, tuple );
+    
+elseif strcmp(fetch1(Scans(key),'scan_prog'),'Imager')
+      [name, date] = fetch1( Scans(key),'file_name','exp_date' );
+    if ~isempty(strfind(name,'.h5'));fend = [];else fend = '.h5';end
+    path = ['M:/IntrinsicImaging/' datestr(date, 'yymmdd')];
+    filename = getLocalPath([path '/' name fend]);
+    [data,Fs] = getOpticalData(filename);
+    
+    tuple.alignXshifts = 0;
+    tuple.alignYshifts = 0;
+    tuple.alignZshifts = 0;
+    tuple.xsize        = size(data,2);
+    tuple.ysize        = size(data,3);
+    tuple.zsize        = 1;
+    tuple.nframes      = size(data,1);
+    tuple.fps          = Fs;
+    tuple.raw_green    = squeeze(mean(data,1));
     tuple.raw_red      = [];
     
     insert( obj, tuple );

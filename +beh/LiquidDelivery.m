@@ -18,8 +18,9 @@ classdef LiquidDelivery < dj.Relvar
         function plotDelivery(self)
             figure
 
-                mice = fetch(vis2p.Mice & (beh.LiquidDelivery & ['timestamp>' num2str(timestamp(floor(now)))]));
-      
+%                 mice = fetch(vis2p.Mice & (beh.LiquidDelivery & ['timestamp>' num2str(timestamp(floor(now)))]));
+            mice = fetch(vis2p.Mice & self);
+
             for imouse = 1:length(mice);
                
                 [times, pulse] = fetchn(self & mice(imouse),'timestamp','microl_per_pulse');

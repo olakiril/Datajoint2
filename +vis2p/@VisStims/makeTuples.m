@@ -95,7 +95,7 @@ elseif strcmp(scpr,'Unirec') && state
         'stimPath',stimPath,'scprog',scpr,'date',fetch1(Scans(key),'exp_date'));
 elseif strcmp(scpr,'Imager') && state
     [stimfilename, tuple.frame_timestamps] = syncStim2Imager(filename, ...
-        'stimPath',stimPath,'scprog',scpr,'date',fetch1(Scans(key),'exp_date'),'manual',0);
+        'stimPath',stimPath,'scprog',scpr,'date',fetch1(Scans(key),'exp_date'),'manual',1);
 elseif strcmp(scpr,'Imager') && ~state
     stimfilename = {'other'};
     tuple.frame_timestamps = [];
