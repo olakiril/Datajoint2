@@ -22,9 +22,9 @@ for ikey = 1:length(keys)
     
     imA(imA>prctile(imA(:),99)) = prctile(imA(:),99);
     
-    [h1, h2] = hist(reshape(imP(imP~=0),[],1),100);
-    mxv = h2(h1 == max(h1));
-    imP = imP - mxv(1);
+%     [h1, h2] = hist(reshape(imP(imP~=0),[],1),100);
+%     mxv = h2(h1 == max(h1));
+%     imP = imP - mxv(1);
     imP(imP<-3.14) = imP(imP<-3.14) +3.14*2;
     imP(imP>3.14) = imP(imP>3.14) -3.14*2;
     imP(imP<0) = -exp((imP(imP<0)+ params.range)*params.exp);

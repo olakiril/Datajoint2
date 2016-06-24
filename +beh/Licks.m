@@ -19,9 +19,9 @@ classdef Licks < dj.Relvar
             figure
             set(gcf,'name','Correct Stimuli')
             k = [];
-%             tmst = 'session_timestamp>"2015-06-30 09:00:00"';
-            tmst = opts;
-            mice = unique(fetchn(beh.Session & self & 'exp_type > "Freerun"','mouse_id'));
+            tmst = 'session_timestamp>"2016-06-19 09:00:00"';
+%             tmst = opts;
+            mice = unique(fetchn(beh.Session & tmst & self & 'exp_type > "Freerun"','mouse_id'));
             for ii = 1:length(mice)
                 
                 k.mouse_id = mice(ii);

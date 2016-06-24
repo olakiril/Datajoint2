@@ -113,7 +113,7 @@ classdef OlfResp < dj.Relvar & dj.AutoPopulate
                 k.mouse_id = imouse;
                 
                 exp_date = fetchn(olf.Session & obj & k,'session_timestamp');
-                [r,s] = measureResponse(olf.OlfResp & obj);
+                [r,s] = measureResponse(olf.OlfResp & obj & k);
                 R =  mean(~isnan(r'));
                 S = nanmean(r');
                 A{1,imouse+1} = mice(imouse);

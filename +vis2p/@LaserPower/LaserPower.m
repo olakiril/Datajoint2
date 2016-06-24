@@ -10,20 +10,14 @@ calibration                 : mediumblob                    # i) the measurments
 %}
 
 
-classdef LaserPower < dj.Relvar & dj.AutoPopulate
+classdef LaserPower < dj.Relvar 
 
-	properties
-		popRel = LaserPower
-	end
+% 	properties
+% 		popRel = vis2p.LaserPower
+% 	end
 
 	methods(Access=protected)
-
-		function self = LaserPower(varargin)
-			self.restrict(varargin{:})
-		end
-
 		makeTuples( obj )
-
 	end
 
 end

@@ -40,7 +40,11 @@ classdef Scan < dj.Relvar & dj.AutoPopulate
                 tuple.xsize = tr.scanimage.SI.hRoiManager.pixelsPerLine;
                 tuple.ysize = tr.scanimage.SI.hRoiManager.linesPerFrame;
                 tuple.zsize = tr.scanimage.SI.hStackManager.numSlices; % fix this
-                tuple.fps = tr.scanimage.SI.hRoiManager.scanFrameRate;
+                if tuple.zsize>1
+                    tuple.fps = tr.scanimage.SI.hRoiManager.scanVolumeRate;
+                else
+                    tuple.fps = tr.scanimage.SI.hRoiManager.scanFrameRate;
+                end
                 zoom = tr.scanimage.SI.hRoiManager.scanZoomFactor;
                 channels = length(tr.scanimage.SI.hChannels.channelSave);
                 
@@ -51,10 +55,12 @@ classdef Scan < dj.Relvar & dj.AutoPopulate
                 if tuple.zsize>1
                     for ifile = 1:length(file_dirs);
                         data = read_patterned_tifdata(getLocalPath(fullfile(path,file_dirs(ifile).name)));
+                        chunkSize = size(data,3)/(channels*tuple.zsize);
+                        idx = 1+(ifile-1)*chunkSize:(ifile)*chunkSize;
                         for islice = 1:tuple.zsize
-                            data_ch1(:,:,end+1:end+size(data,3)/(channels*tuple.zsize),islice) = ...
+                            data_ch1(:,:,idx,islice) = ...
                                 data(:,:,1 + channels*(islice-1):channels*tuple.zsize:end);
-                            data_phd(:,:,end+1:end+size(data,3)/(channels*tuple.zsize),islice) = ...
+                            data_phd(:,:,idx,islice) = ...
                                 data(:,:,3 + channels*(islice-1):channels*tuple.zsize:end);
                         end
                         clear data
@@ -89,6 +95,9 @@ classdef Scan < dj.Relvar & dj.AutoPopulate
             % filter photodiode
             tuple.trials = findTrials(obj,data_phd,tuple.fps,dur,tuple.zsize);
             clear data_phd
+            
+            % fix baseline
+            data_ch1 = data_ch1+abs(min(data_ch1(:)));
             
             % fix raster & motion artifacts
             for islice = 1:size(data_ch1,4)
@@ -273,7 +282,7 @@ classdef Scan < dj.Relvar & dj.AutoPopulate
             % %                 plot(B{1}(:,2),B{1}(:,1),'r')
             %                  text(xpos,ypos,num2str(masknum(imask)))
             %             end
-           
+            
         end
         
         function plotTraces(obj)
@@ -281,13 +290,13 @@ classdef Scan < dj.Relvar & dj.AutoPopulate
             keys = fetch(obj);
             for session = keys
                 
-                % compute stimuli 
-                  figure
+                % compute stimuli
+                figure
                 hold on
                 [strials,stimuli] = fetchn(olf.StimPeriods & obj,'trial','stimulus');
-                  [fps,ftrials] = fetch1(obj,'fps','trials');
+                [fps,ftrials] = fetch1(obj,'fps','trials');
                 [sindx,desc] = fetchn(olf.Stimuli & obj,'stimulus_index','stimulus_description');
-                % compute traces 
+                % compute traces
                 traces = fetchn(olf.Traces & session & 'trace_opt = 3','trace');
                 T = cell2mat(traces');
                 
@@ -300,9 +309,9 @@ classdef Scan < dj.Relvar & dj.AutoPopulate
                 fps2 = fps;
                 
                 % plot stimuli
-                 ustim = unique(stimuli);
-                  colors = hsv(length(ustim));
-                  colors(colors==0) = 0.8;
+                ustim = unique(stimuli);
+                colors = hsv(length(ustim));
+                colors(colors==0) = 0.8;
                 for itrial = 1:length(strials)
                     start = find(ftrials==strials(itrial),1,'first');
                     stop = find(ftrials==strials(itrial),1,'last');
@@ -310,10 +319,10 @@ classdef Scan < dj.Relvar & dj.AutoPopulate
                     area([start stop]/fps,[size(traces,1)+1 size(traces,1)+1],...
                         'facecolor',color,'edgecolor','none')
                 end
-                  
+                
                 % plot Traces
                 plot(0:1/(fps2):size(tr2,1)/(fps2) - 1/(fps2),bsxfun(@plus,tr2/2,1:size(tr2,2)),'color',[0.4 0.4 0.4])
-               
+                
                 xlim([0 size(tr2,1)/fps2-1/fps2])
                 ylim([0 size(tr2,2)+1])
                 ylabel('Cell #')
