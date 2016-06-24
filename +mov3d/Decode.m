@@ -13,7 +13,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
     properties
         popRel  = (rf.Scan & pre.Spikes) * (pre.SpikeInference & 'spike_inference = 2')...
             * pre.SegmentMethod * (mov3d.DecodeOpt & 'process = "yes"') * ...
-            (rf.Sync & (psy.MovieInfo & 'movie_class="object3d"')) & pre.Spikes
+            (rf.Sync & (psy.MovieClipCond & (psy.MovieInfo & 'movie_class="object3d"'))) & pre.Spikes
     end
     
     methods(Access=protected)
