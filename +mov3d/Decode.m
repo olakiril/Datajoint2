@@ -13,7 +13,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
     properties
         popRel  = (rf.Scan & pre.Spikes) * (pre.SpikeInference & 'spike_inference = 2')...
             * pre.SegmentMethod * (mov3d.DecodeOpt & 'process = "yes"') * ...
-            (rf.Sync & psy.Movie & (psy.Session & 'stimulus="object3d"') )
+            (rf.Sync & (psy.MovieInfo & 'movie_class="object3d"')) & pre.Spikes
     end
     
     methods(Access=protected)
@@ -40,12 +40,12 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
                 X = @(t) interp1(caTimes(1:xm)-caTimes(1), X(1:xm,:), t, 'linear', nan);  % traces indexed by time
                 
                 trials = pro(rf.Sync*psy.Trial & (rf.Scan & key) & 'trial_idx between first_trial and last_trial', 'cond_idx', 'flip_times');
-                trials = fetch(trials*psy.Movie, '*', 'ORDER BY trial_idx');
+                trials = fetch(trials*psy.MovieClipCond, '*', 'ORDER BY trial_idx');
                 
                 snippet = [];
                 stims = [2 1];
                 for trial = trials'
-                    stim = stims(~isempty(strfind(trial.path_template,'obj1'))+1);
+                    stim = stims(~isempty(strfind(trial.movie_name,'obj1'))+1);
                     % extract relevant trace & bin
                     fps = 1/median(diff(trial.flip_times));
                     t = trial.flip_times - caTimes(1);
@@ -281,13 +281,17 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
         end
         
         function plotLLE(obj,k)
-%             k.animal_id = 9508;
-%             k.spike_inference = 2;
-%             k.segment_method = 2;
-%             k.session = 1;
-%             k.scan_idx = 2;
+            % bin = 5000;
+            bin = 1000;
+            if nargin<2
+                k.animal_id = 9508;
+                k.spike_inference = 2;
+                k.segment_method = 2;
+                k.session = 1;
+                k.scan_idx = 2;
+            end
             
-            traces = getData(mov3d.Decode,k,5000);
+            traces = getData(mov3d.Decode,k,bin);
             traces(isnan(traces))=0;
             tracesn = permute(traces,[1 3 2]);
             trac = tracesn(:,:);
