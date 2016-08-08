@@ -14,12 +14,14 @@ classdef Licks < dj.Relvar
             self.restrict(varargin{:})
         end
         
-        function plot(self,opts)
+        function plot(self,tmst)
             
             figure
             set(gcf,'name','Correct Stimuli')
             k = [];
-            tmst = 'session_timestamp>"2016-06-19 09:00:00"';
+            if nargin<2
+                tmst = 'session_timestamp>"2016-07-15 09:00:00"';
+            end
 %             tmst = opts;
             mice = unique(fetchn(beh.Session & tmst & self & 'exp_type > "Freerun"','mouse_id'));
             for ii = 1:length(mice)
@@ -57,7 +59,7 @@ classdef Licks < dj.Relvar
                 end
                 xlabel('Time (min)')
                 title([num2str(mice(ii))])
-                
+                set(gca,'ytick',[])
             end
             
             figure
@@ -108,10 +110,26 @@ classdef Licks < dj.Relvar
                 end
                 xlabel('Time (min)')
                 title([num2str(mice(ii))])
-                
+                set(gca,'ytick',[])
             end
             
         end
+        
+        function plotLinear(self,k)
+            licks = fetchn(beh.Licks & k,'timestamp');
+            [periods,periodst]=fetchn(beh.StimPeriods & k,'period_type','timestamp');
+            water = fetchn(beh.LiquidDelivery & k,'timestamp');
+            air = fetchn(beh.AirDelivery & k,'timestamp');
+
+            plot((periodst(strcmp(periods,'obj1_default0004.png'))-periodst(1))/1000,1,'.g')
+            hold on;plot((periodst(strcmp(periods,'obj2_default0002.png'))-periodst(1))/1000,1,'.r')
+            hold on;plot((periodst(strcmp(periods,'endTrial'))-periodst(1))/1000,1,'.k')
+            hold on;plot((periodst(strcmp(periods,'punishment'))-periodst(1))/1000,2,'.r')
+            hold on;plot((water-periodst(1))/1000,1.5,'.g')
+            hold on;plot((licks-periodst(1))/1000,0,'.k')
+
+            ylim([-1 10])
+            grid on
     end
     
     
