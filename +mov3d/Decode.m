@@ -83,7 +83,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             [bin, rf_idx] = fetch1(mov3d.DecodeOpt & key, 'binsize','restrict_rf');
             if nargin>2;bin = ibin;end
             
-            if strcmp(rf_idx,'yes'); 
+            if rf_idx > 0; 
                 [rf_idx, rf_trials] = fetch1(mov3d.RFMap & key,'rf_idx','trials');
             else rf_idx = false;
             end
