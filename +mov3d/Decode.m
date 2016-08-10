@@ -85,6 +85,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             
             if rf_idx > 0;
                 index = true;
+                [rf_idx, rf_trials] = fetch1(mov3d.RFFilter & key,'rf_idx','rf_trials');
             else index = false;
             end
             
