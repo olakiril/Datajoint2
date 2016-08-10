@@ -31,7 +31,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
                 fetch1(mov3d.DecodeOpt & key,...
                 'select_method','decode_method','trial_bins','trial_method');
             
-            [Data, xloc, yloc, zloc] = getData(obj,key);
+            [Data, xloc, yloc, zloc] = getData(self,key); % [Cells, Obj, Trials]
            
             % compute distances for 'expand' method
             xloc = cell2mat(xloc');yloc = cell2mat(yloc');zloc = cell2mat(zloc');
@@ -83,9 +83,9 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             [bin, rf_idx] = fetch1(mov3d.DecodeOpt & key, 'binsize','restrict_rf');
             if nargin>2;bin = ibin;end
             
-            if rf_idx > 0; 
-                [rf_idx, rf_trials] = fetch1(mov3d.RFMap & key,'rf_idx','trials');
-            else rf_idx = false;
+            if rf_idx > 0;
+                index = true;
+            else index = false;
             end
             
             AA = []; BB = [];
@@ -118,17 +118,19 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
                     d = max(1,round(bin/1000*fps));
                     trace = convn(X(t),ones(d,1)/d,'same');
                     trace = trace(1:d:end,:);
-                    if rf_idx; trace = trace(rf_idx{trial==rf_trials},:);end
+                    if index; trace = trace(rf_idx{trial.trial_idx==rf_trials},:);end
                     snippet{stim,end+1} = trace;
                 end
                 
                 A = snippet(1,:);
                 A = A(~cellfun(@isempty,A));
-                AA{islice} = reshape(cell2mat(A),size(A{1},1),size(A{1},2),[]);
+%                 AA{islice} = reshape(cell2mat(A),size(A{1},1),size(A{1},2),[]); % [bins cells trials]
+                AA{islice} = permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),A,'uni',0)'),size(A{1},2),[]),[3 1 2]);
                 
                 B = snippet(2,:);
                 B = B(~cellfun(@isempty,B));
-                BB{islice} = reshape(cell2mat(B),size(B{1},1),size(B{1},2),[]);
+%                 BB{islice} = reshape(cell2mat(B),size(B{1},1),size(B{1},2),[]);
+                BB{islice} =  permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),B,'uni',0)'),size(B{1},2),[]),[3 1 2]);
             end
             
             % Arrange data

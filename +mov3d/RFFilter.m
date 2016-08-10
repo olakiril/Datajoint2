@@ -1,16 +1,17 @@
 %{
-mov3d.RFMap (computed) # population RF
+mov3d.RFFilter (computed) # population RF
 -> rf.Sync
 -> mov3d.DecodeOpt
 -> pre.SpikeInference
 -> pre.SegmentMethod
 ---
 map                    : longblob        # standard deviation from center of population RF
-rf_idx                 : longblob        # index of subbins with stimulus in pop RF {trials}(subbins)
+rf_idx                 : longblob        # index of subbins with stimulus in pop RF (trials)(subbins)
 rf_trials              : longblob        # trial index (trial indexes)
+v1_rfs                 : longblob        # Individual RF centers [x y]
 %}
 
-classdef RFMap < dj.Relvar & dj.AutoPopulate
+classdef RFFilter < dj.Relvar & dj.AutoPopulate
     
     properties        
         popRel  = (rf.Scan & pre.Spikes) ...
@@ -25,6 +26,8 @@ classdef RFMap < dj.Relvar & dj.AutoPopulate
     methods(Access=protected)
         
         function makeTuples(self, key)
+            
+            tuple = key;
             
             % params
             [binsize, rf_thr] = fetch1(mov3d.DecodeOpt & key,'binsize','restrict_rf');
@@ -75,8 +78,9 @@ classdef RFMap < dj.Relvar & dj.AutoPopulate
             trials = fetch(trials*psy.MovieClipCond, '*', 'ORDER BY trial_idx'); %fetch(trials*psy.Movie, '*', 'ORDER BY trial_idx') 2016-08
             
             % find bins within the pop RF
-            rf_idx = []; rf_trials = 1:length(trials);
-            for itrial = rf_trials
+            rf_idx = []; rf_trials = [];
+            for itrial = 1:length(trials)
+                rf_trials(itrial) = trials(itrial).trial_idx;
                 obj_idx = strcmp(obj,trials(itrial).movie_name);
                 frames_per_trial = trials(itrial).cut_after*fps(obj_idx);
                 start = (trials(itrial).clip_number - 1)*frames_per_trial;
@@ -87,7 +91,8 @@ classdef RFMap < dj.Relvar & dj.AutoPopulate
             % populate
             tuple.map = pop_rf;
             tuple.rf_idx = rf_idx;
-            tuple.rf_trials = rf.trials;
+            tuple.rf_trials = rf_trials;
+            tuple.v1_rfs = [xloc yloc];
             self.insert(tuple)
             
         end
