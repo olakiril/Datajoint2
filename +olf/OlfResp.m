@@ -72,6 +72,7 @@ classdef OlfResp < dj.Relvar & dj.AutoPopulate
         end
     end
     
+    
     methods
         function [resp,stim] = measureResponse(obj)
             keys = fetch(obj);

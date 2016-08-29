@@ -33,7 +33,12 @@ classdef RFFilter < dj.Relvar & dj.AutoPopulate
             [binsize, rf_thr] = fetch1(mov3d.DecodeOpt & key,'binsize','restrict_rf');
             
             % get V1 RFs
-            V1key = fetch(rf.Scan & 'cortical_area= "V1"' & rmfield(key,'scan_idx'));
+            sesskey = rmfield(key,'scan_idx');
+            V1key = fetch(rf.Scan & 'cortical_area= "V1"' & sesskey);
+            if isempty(V1key);
+                sesskey.session = sesskey.session-1;
+                V1key = fetch(rf.Scan & 'cortical_area= "V1"' & sesskey);
+            end
             [xloc, yloc] = fetchn(monet.Fit & V1key(1),'x','y');
             
             % convert to pixel space
