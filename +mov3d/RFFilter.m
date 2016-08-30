@@ -19,7 +19,7 @@ classdef RFFilter < dj.Relvar & dj.AutoPopulate
             & 'spike_inference = 3'  & 'segment_method=2'))...
             * (mov3d.DecodeOpt & 'process = "yes"' & 'restrict_rf>0') ...
             * (preprocess.Sync & (vis.MovieClipCond & (vis.Movie & 'movie_class="object3d"'))) ...
-            & monet.Fit 
+            & tuning.MonetFit 
     end
     
     methods(Access=protected)
@@ -38,7 +38,7 @@ classdef RFFilter < dj.Relvar & dj.AutoPopulate
                 sesskey.session = sesskey.session-1;
                 V1key = fetch(experiment.Scan & 'cortical_area= "V1"' & sesskey);
             end
-            [xloc, yloc] = fetchn(monet.Fit & V1key(1),'x','y');
+            [xloc, yloc] = fetchn(tuning.MonetFit & V1key(1),'x','y');
             
             % convert to pixel space
             sess = fetch(preprocess.Sync*vis.Session & key,'resolution_x','resolution_y','monitor_distance','monitor_size');
