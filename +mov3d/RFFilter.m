@@ -33,10 +33,10 @@ classdef RFFilter < dj.Relvar & dj.AutoPopulate
             
             % get V1 RFs
             sesskey = rmfield(key,'scan_idx');
-            V1key = fetch(experiment.Scan & 'cortical_area= "V1"' & sesskey);
+            V1key = fetch(experiment.Scan & 'brain_area= "V1"' & sesskey);
             if isempty(V1key);
                 sesskey.session = sesskey.session-1;
-                V1key = fetch(experiment.Scan & 'cortical_area= "V1"' & sesskey);
+                V1key = fetch(experiment.Scan & 'brain_area= "V1"' & sesskey);
             end
             [xloc, yloc] = fetchn(tuning.MonetFit & V1key(1),'x','y');
             
