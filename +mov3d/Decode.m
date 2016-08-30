@@ -48,6 +48,8 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             
             % run the decoding
             for itrial = 1:trial_bins
+                display(['Decoding trial # ' num2str(itrial)])
+                 
                 data = Data(:,:,trial_idx(...
                     1+trial_bin*(itrial-1):trial_bin*itrial));
                 

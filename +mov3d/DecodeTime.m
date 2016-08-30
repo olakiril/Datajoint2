@@ -27,15 +27,12 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
             
             tuple = key;
             
-            [sel_method,dec_method,trial_bins,trial_method] = ...
+            [dec_method,trial_bins,trial_method] = ...
                 fetch1(mov3d.DecodeTimeOpt & key,...
-                'select_method','decode_method','trial_bins','trial_method');
+                'decode_method','trial_bins','trial_method');
             
-            [Data, xloc, yloc, zloc, Trials] = getData(self,key); % [Cells, Obj, Trials]
-           
-            % compute distances for 'expand' method
-            xloc = cell2mat(xloc');yloc = cell2mat(yloc');zloc = cell2mat(zloc');
-            
+            [Data, ~, ~, ~, Trials] = getData(self,key); % [Cells, Obj, Trials]
+                       
             % create trial index
             switch trial_method
                 case 'random'
@@ -44,10 +41,12 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
                     trial_idx = 1:size(Data,3);
             end
             trial_bin = floor(size(Data,3)/trial_bins);
-            if strcmp(sel_method,'all');mi = nan(trial_bins,1);else mi = nan(trial_bins,size(Data,1));end
             
+            obj_cis = [];
+            obj_trans =[];
             % run the decoding
             for itrial = 1:trial_bins
+                display(['Decoding trial # ' num2str(itrial)])
                 data = Data(:,:,trial_idx(...
                     1+trial_bin*(itrial-1):trial_bin*itrial));
 
