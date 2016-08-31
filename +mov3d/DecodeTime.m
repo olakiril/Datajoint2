@@ -15,8 +15,7 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
     
     properties
         popRel  = (experiment.Scan  ...
-            * (pro(preprocess.Spikes,'spike_method->spike_inference','extract_method->segment_method') ...
-            & 'spike_inference = 3'  & 'segment_method=2'))...
+            * (preprocess.Spikes & 'spike_method = 3'  & 'extract_method=2'))...
             * (mov3d.DecodeTimeOpt & 'process = "yes"') ...
             * (preprocess.Sync & (vis.MovieClipCond & (vis.Movie & 'movie_class="object3d"')))
     end
@@ -81,8 +80,13 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
             % insert
             tuple.obj_cis = obj_cis;
             tuple.obj_trans = obj_trans;
-            self.insert(tuple)
             
+            % correct for key mismach
+            tuple = rmfield(tuple,'spike_method');
+            tuple = rmfield(tuple,'extract_method');
+            tuple.spike_inference = key.spike_method;
+            tuple.segment_method = key.extract_method;
+            self.insert(tuple)
         end
     end
     
