@@ -150,7 +150,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             Data(:,2,:) = reshape(permute(objB(:,:,1:mS),[2 4 3 1]),size(objB,2),1,[]);
         end
         
-        function mi = decode(data,dec_method)
+        function mi = decode(obj,data,dec_method)
             switch dec_method
                 case 'nnclassRaw'
                     mi = nnclassRaw(data);
