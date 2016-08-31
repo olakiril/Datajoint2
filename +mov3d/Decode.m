@@ -17,7 +17,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             * (preprocess.Spikes & 'spike_method = 3'  & 'extract_method=2'))...
             * (mov3d.DecodeOpt & 'process = "yes"') ...
             * (preprocess.Sync & (vis.MovieClipCond & (vis.Movie & 'movie_class="object3d"')))
-           
+        
     end
     
     methods(Access=protected)
@@ -31,7 +31,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
                 'select_method','decode_method','trial_bins','trial_method');
             
             [Data, xloc, yloc, zloc] = getData(self,key); % [Cells, Obj, Trials]
-           
+            
             % compute distances for 'expand' method
             xloc = cell2mat(xloc');yloc = cell2mat(yloc');zloc = cell2mat(zloc');
             
@@ -46,33 +46,34 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             if strcmp(sel_method,'all');mi = nan(trial_bins,1);else mi = nan(trial_bins,size(Data,1));end
             
             % run the decoding
-            for itrial = 1:trial_bins
+            mi = cell(trial_bins,1);
+            parfor itrial = 1:trial_bins
                 display(['Decoding trial # ' num2str(itrial)])
-                 
+                
                 data = Data(:,:,trial_idx(...
                     1+trial_bin*(itrial-1):trial_bin*itrial));
                 
                 switch sel_method
                     case 'all'
-                        mi(itrial) = eval([dec_method '(data)']);
+                        mi{itrial} = decode(data,dec_method);
                     case 'subsample'
                         cell_idx = randperm(size(Data,1));
                         for icell = 1:size(Data,1)
-                            dat = data(cell_idx(1:icell),:,:); %#ok<NASGU>
-                            mi(itrial,icell) =  eval([dec_method '(dat)']);
+                            dat = data(cell_idx(1:icell),:,:); 
+                            mi{itrial}(icell) = decode(dat,dec_method);
                         end
                     case 'expand'
                         cell_idx = randperm(size(Data,1),1);
                         [~,sort_idx] = sort(abs(pdist2([xloc(cell_idx),yloc(cell_idx),zloc(cell_idx)],[xloc,yloc,zloc])),'ascend');
-                        dat = data(sort_idx,:,:); %#ok<NASGU>
+                        dat = data(sort_idx,:,:);
                         for icell = 1:size(Data,1)
-                            mi(itrial,icell) =  eval([dec_method '(dat(1:icell,:,:))']);
+                            mi{itrial}(icell) = decode(dat(1:icell,:,:),dec_method);
                         end
                 end
             end
             
             % insert
-            tuple.mi = mi;
+            tuple.mi = cell2mat(mi')';
             
             % correct for key mismach
             tuple = rmfield(tuple,'spike_method');
@@ -86,7 +87,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
     
     methods
         function [Data, xloc, yloc, zloc] = getData(obj,key,ibin)
-         
+            
             [bin, rf_idx] = fetch1(mov3d.DecodeOpt & key, 'binsize','restrict_rf');
             if nargin>2;bin = ibin;end
             
@@ -132,12 +133,12 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
                 
                 A = snippet(1,:);
                 A = A(~cellfun(@isempty,A));
-%                 AA{islice} = reshape(cell2mat(A),size(A{1},1),size(A{1},2),[]); % [bins cells trials]
+                %                 AA{islice} = reshape(cell2mat(A),size(A{1},1),size(A{1},2),[]); % [bins cells trials]
                 AA{islice} = permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),A,'uni',0)'),size(A{1},2),[]),[3 1 2]);
                 
                 B = snippet(2,:);
                 B = B(~cellfun(@isempty,B));
-%                 BB{islice} = reshape(cell2mat(B),size(B{1},1),size(B{1},2),[]);
+                %                 BB{islice} = reshape(cell2mat(B),size(B{1},1),size(B{1},2),[]);
                 BB{islice} =  permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),B,'uni',0)'),size(B{1},2),[]),[3 1 2]);
             end
             
@@ -147,6 +148,19 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             mS = min([size(objA,3) size(objB,3)]);
             Data = reshape(permute(objA(:,:,1:mS),[2 4 3 1]),size(objA,2),1,[]);
             Data(:,2,:) = reshape(permute(objB(:,:,1:mS),[2 4 3 1]),size(objB,2),1,[]);
+        end
+        
+        function mi = decode(data,dec_method)
+            switch dec_method
+                case 'nnclassRaw'
+                    mi = nnclassRaw(data);
+                case 'nnclassRawSV'
+                    mi = nnclassRawSV(data);
+                case 'nnclass'
+                    mi = nnclass(data);
+                case 'nnclassSV'
+                    mi = nnclassSV(data);
+            end
         end
         
         function plotMasks(obj,key)
@@ -256,8 +270,8 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             xlabel('Neuron #')
             ylabel('Mutual Information (bits)')
             set(gca,'box','off')
-                        l = legend(names);
-                        set(l,'box','off','location','northwest')
+            l = legend(names);
+            set(l,'box','off','location','northwest')
             title('Classifier: SVM, Bin size = 0.5sec')
         end
         
