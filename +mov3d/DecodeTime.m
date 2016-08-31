@@ -165,6 +165,21 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
             Trials = squeeze(Trials(1,:,:));
         end
    
+        function plot(obj,k)
+            bin = fetch1(mov3d.DecodeTimeOpt & k,'binsize');
+            obj_cis = fetch1(mov3d.DecodeTime & k,'obj_cis');
+            obj_trans = fetch1(mov3d.DecodeTime & k,'obj_trans');
+            idx = ~cellfun(@isempty,obj_cis);
+            cis = cell2mat(obj_cis(idx)');
+            idx = ~cellfun(@isempty,obj_trans);
+            trans = cell2mat(obj_trans(idx)');
+            figure
+            errorPlot(1:size(cis,1),cis','errorColor',[0 0 0.5'])
+            hold on
+            errorPlot(1:size(cis,1),trans','errorColor',[0.5 0 0])
+            ylim([0.5 1])
+            set(gca, 'xtick',1:size(cis,1),'xticklabel',bin/1000:bin/1000:5) 
+        end
     end
     
 end
