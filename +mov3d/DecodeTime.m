@@ -41,34 +41,41 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
                     trial_idx = 1:size(Data,3);
             end
             trial_bin = floor(size(Data,3)/trial_bins);
-            
-            obj_cis = [];
-            obj_trans =[];
+            minBinNum = mode(diff(find(abs(diff(reshape(Trials',[],1)))>0)));
+            obj_cis = cell(trial_bins,1);
+            obj_trans = cell(trial_bins,1);
             % run the decoding
-            for itrial = 1:trial_bins
+    
+            parfor itrial = 1:trial_bins
+                
                 display(['Decoding trial # ' num2str(itrial)])
-                data = Data(:,:,trial_idx(...
-                    1+trial_bin*(itrial-1):trial_bin*itrial));
-
-                mi = eval([dec_method '(data,''trials'',1)']);
-                 
-                utrials = unique(Trials(:));
+                tIdx = trial_idx(...
+                    1+trial_bin*(itrial-1):trial_bin*itrial);
+                data = Data(:,:,tIdx);
+                trials = Trials(:,tIdx);
+              
+                if strcmp(dec_method,'nnclassSV')
+                   % mi = eval([dec_method '(data,''trials'',1)']);
+                   mi = nnclassSV(data,'trials',1);
+                end
+                utrials = unique(trials(:));
                 
                 cis = [];
                 trans = [];
                 for iseg = 2:length(utrials)
-                    idx = find(Trials==utrials(iseg));
-                    [x,~] = ind2sub(size(Trials),idx);
-                    [xbef,~] = ind2sub(size(Trials),find(Trials==utrials(iseg-1)));
-                    if all(xbef==x)
+                    idx = find(trials==utrials(iseg));
+                    [x,~] = ind2sub(size(trials),idx);
+                    [xbef,~] = ind2sub(size(trials),find(trials==utrials(iseg-1)));
+                    if all(xbef(end)==x)
                         cis{end+1} = mi(idx);
-                    elseif all(xbef~=x)
+                    elseif all(xbef(end)~=x)
                         trans{end+1} = mi(idx);
                     end
                 end
-                
-                obj_cis(itrial,:) = mean(cell2mat(obj_cis),2);
-                obj_trans(itrial,:) = mean(cell2mat(obj_trans),2);
+                idx = cellfun(@(x) length(x)==minBinNum,cis);
+                obj_cis{itrial} = mean(cell2mat(cis(idx)),2);
+                idx = cellfun(@(x) length(x)==minBinNum,trans);
+                obj_trans{itrial} = mean(cell2mat(trans(idx)),2);
             end
             
             % insert
@@ -82,14 +89,10 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
     methods
         function [Data, xloc, yloc, zloc, Trials] = getData(obj,key,ibin)
          
-            [bin, rf_idx] = fetch1(mov3d.DecodeOpt & key, 'binsize','restrict_rf');
+            bin = fetch1(mov3d.DecodeTimeOpt & key, 'binsize');
             if nargin>2;bin = ibin;end
             
-            if rf_idx > 0;
-                index = true;
-                [rf_idx, rf_trials] = fetch1(mov3d.RFFilter & key,'rf_idx','rf_trials');
-            else index = false;
-            end
+          
             
             AA = []; BB = [];
             
@@ -124,7 +127,6 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
                     d = max(1,round(bin/1000*fps));
                     trace = convn(X(t),ones(d,1)/d,'same');
                     trace = trace(1:d:end,:);
-                    if index; trace = trace(rf_idx{trial.trial_idx==rf_trials},:);end
                     snippet{stim,idx} = trace;
                     trial_idx{stim,idx} = repmat(trial.trial_idx,size(trace,1),1);
                 end
