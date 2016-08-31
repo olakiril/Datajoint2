@@ -16,7 +16,7 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
     properties
         popRel  = (rf.Scan & pre.Spikes) ...
             * (pre.SpikeInference & 'spike_inference = 2')...
-            * pre.SegmentMethod ...
+            * pre.SegmentMethod & 'segment_method = 1' ...
             * (mov3d.DecodeTimeOpt & 'process = "yes"') ...
             * (rf.Sync & (psy.MovieClipCond & (psy.MovieInfo & 'movie_class="object3d"'))) ...
             & pre.Spikes
@@ -32,7 +32,7 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
                 fetch1(mov3d.DecodeTimeOpt & key,...
                 'decode_method','trial_bins','trial_method');
             
-            [Data, ~, ~, ~, Trials] = getData(self,key); % [Cells, Obj, Trials]
+            [Data, Trials] = getData(self,key); % [Cells, Obj, Trials]
                        
             % create trial index
             switch trial_method
@@ -87,17 +87,12 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
     end
     
     methods
-        function [Data, xloc, yloc, zloc, Trials] = getData(obj,key,ibin)
+        function [Data, Trials] = getData(obj,key,ibin)
          
-            [bin, rf_idx] = fetch1(mov3d.DecodeTimeOpt & key, 'binsize','restrict_rf');
+            bin= fetch1(mov3d.DecodeTimeOpt & key, 'binsize');
             if nargin>2;bin = ibin;end
             
-            if rf_idx > 0;
-                index = true;
-                [rf_idx, rf_trials] = fetch1(mov3d.RFFilter & key,'rf_idx','rf_trials');
-            else index = false;
-            end
-            
+        
             AA = []; BB = [];
             
              nslices = fetch1(pre.ScanInfo & key, 'nslices');
@@ -108,9 +103,9 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
                 caTimes = fetch1(rf.Sync &  (rf.Scan & key), 'frame_times');
                 
                 caTimes = caTimes(key.slice:nslices:end);
-                 [X, xloc{islice}, yloc{islice}, zloc{islice}] = ...
-                    fetchn(pre.Spikes * pre.MaskCoordinates & key,...
-                    'spike_trace','xloc','yloc','zloc');
+                 [X] = ...
+                    fetchn(pre.Spikes & key,...
+                    'spike_trace');
                 X = [X{:}];
                 xm = min([length(caTimes) length(X)]);
                 X = @(t) interp1(caTimes(1:xm)-caTimes(1), X(1:xm,:), t, 'linear', nan);  % traces indexed by time
@@ -131,7 +126,6 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
                     d = max(1,round(bin/1000*fps));
                     trace = convn(X(t),ones(d,1)/d,'same');
                     trace = trace(1:d:end,:);
-                    if index; trace = trace(rf_idx{trial.trial_idx==rf_trials},:);end
                     snippet{stim,idx} = trace;
                     trial_idx{stim,idx} = repmat(trial.trial_idx,size(trace,1),1);
                 end
@@ -166,6 +160,18 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
             Trials = squeeze(Trials(1,:,:));
         end
    
+        function plot(obj,k)
+           obj_cis = fetch1(mov3d.DecodeTime & k,'obj_cis');
+            obj_trans = fetch1(mov3d.DecodeTime & k,'obj_trans');
+            cis = cell2mat(obj_cis');
+            trans = cell2mat(obj_trans');
+            figure
+            errorPlot(1:10,cis','errorColor',[0 0 0.5'])
+            hold on
+            errorPlot(1:10,trans','errorColor',[0.5 0 0])
+            ylim([0.5 1])
+            set(gca, 'xtick',1:10,'xticklabel',0.5:0.5:5) 
+        end
     end
     
 end

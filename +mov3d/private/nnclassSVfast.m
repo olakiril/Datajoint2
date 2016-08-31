@@ -22,18 +22,19 @@ end
 
 nclasses = 2;
 
-J = [];
+J = cell(size(traces,3),1);
 parfor iTrial = 1:size(traces,3)
     ind = true(size(traces,3),1);
     ind(iTrial) = false;
     r = traces(:,:,ind);
     group = repmat((1:nclasses)',1,size(r,3));
     SVMStruct = fitcsvm(r(:,:)',group(:));
-    
+    p =[];
     for iClass = 1:size(traces,2)
         indx = predict(SVMStruct,traces(:,iClass,iTrial)');
-        J{iTrial}(iClass) = indx == iClass;
+        p(iClass) = indx == iClass;
     end
+    J{iTrial} = p;
 end
 
 
