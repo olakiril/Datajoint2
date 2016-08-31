@@ -1,9 +1,9 @@
 %{
 mov3d.RFFilter (computed) # population RF
--> preprocess.Sync
+-> rf.Sync
 -> mov3d.DecodeOpt
--> preprocess.SpikeMethod
--> preprocess.Method
+-> pre.SpikeInference
+-> pre.SegmentMethod
 ---
 map                    : longblob        # standard deviation from center of population RF
 rf_idx                 : longblob        # index of subbins with stimulus in pop RF (trials)(subbins)
@@ -14,12 +14,13 @@ v1_rfs                 : longblob        # Individual RF centers [x y]
 classdef RFFilter < dj.Relvar & dj.AutoPopulate
     
     properties        
-         popRel  = (experiment.Scan  ...
-            * (pro(preprocess.Spikes,'spike_method->spike_inference','extract_method->segment_method') ...
-            & 'spike_inference = 3'  & 'segment_method=2'))...
+        popRel  = (rf.Scan & pre.Spikes) ...
+            * (pre.SpikeInference & 'spike_inference = 2')...
+            * pre.SegmentMethod ...
             * (mov3d.DecodeOpt & 'process = "yes"' & 'restrict_rf>0') ...
-            * (preprocess.Sync & (vis.MovieClipCond & (vis.Movie & 'movie_class="object3d"'))) ...
-            & tuning.MonetFit 
+            * (rf.Sync & (psy.MovieClipCond & (psy.MovieInfo & 'movie_class="object3d"'))) ...
+            & pre.Spikes ...
+            & monet.Fit 
     end
     
     methods(Access=protected)
@@ -32,16 +33,11 @@ classdef RFFilter < dj.Relvar & dj.AutoPopulate
             [binsize, rf_thr] = fetch1(mov3d.DecodeOpt & key,'binsize','restrict_rf');
             
             % get V1 RFs
-            sesskey = rmfield(key,'scan_idx');
-            V1key = fetch(experiment.Scan & 'brain_area= "V1"' & sesskey);
-            if isempty(V1key);
-                sesskey.session = sesskey.session-1;
-                V1key = fetch(experiment.Scan & 'brain_area= "V1"' & sesskey);
-            end
-            [xloc, yloc] = fetchn(tuning.MonetFit & V1key(1),'x','y');
+            V1key = fetch(rf.Scan & 'cortical_area= "V1"' & rmfield(key,'scan_idx'));
+            [xloc, yloc] = fetchn(monet.Fit & V1key(1),'x','y');
             
             % convert to pixel space
-            sess = fetch(preprocess.Sync*vis.Session & key,'resolution_x','resolution_y','monitor_distance','monitor_size');
+            sess = fetch(rf.Sync*psy.Session & key,'resolution_x','resolution_y','monitor_distance','monitor_size');
             rect = [sess.resolution_x sess.resolution_y];
             degPerPix = 180/pi*sess.monitor_size*2.54/norm(rect(1:2))/sess.monitor_distance;
             xloc = xloc/degPerPix;
@@ -58,7 +54,7 @@ classdef RFFilter < dj.Relvar & dj.AutoPopulate
             pop_rf = reshape(d,rect(2),rect(1)); % in pixel space
             
             % stimulus_trial_xy_position
-            [paramsObj,obj,fps] = fetchn(vis.Movie & (vis.MovieClipCond & key),...
+            [paramsObj,obj,fps] = fetchn(psy.MovieParams & (psy.MovieClipCond & key),...
                 'params','movie_name','frame_rate');
             
             stim_idx = [];
@@ -78,8 +74,8 @@ classdef RFFilter < dj.Relvar & dj.AutoPopulate
             end
             
             % get trials
-            trials = pro(preprocess.Sync*vis.Trial & (experiment.Scan & key) & 'trial_idx between first_trial and last_trial', 'cond_idx', 'flip_times');
-            trials = fetch(trials*vis.MovieClipCond, '*', 'ORDER BY trial_idx'); %fetch(trials*psy.Movie, '*', 'ORDER BY trial_idx') 2016-08
+            trials = pro(rf.Sync*psy.Trial & (rf.Scan & key) & 'trial_idx between first_trial and last_trial', 'cond_idx', 'flip_times');
+            trials = fetch(trials*psy.MovieClipCond, '*', 'ORDER BY trial_idx'); %fetch(trials*psy.Movie, '*', 'ORDER BY trial_idx') 2016-08
             
             % find bins within the pop RF
             rf_idx = []; rf_trials = [];

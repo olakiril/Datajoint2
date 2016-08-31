@@ -1,9 +1,9 @@
 %{
 mov3d.Decode (computed) # calcium trace
--> preprocess.Sync
+-> rf.Sync
 -> mov3d.DecodeOpt
--> preprocess.SpikeMethod
--> preprocess.Method
+-> pre.SpikeInference
+-> pre.SegmentMethod
 ---
 mi                    : longblob                      # mutual information
 %}
@@ -13,12 +13,12 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
     %#ok<*INUSL>
     
     properties
-        popRel  = (experiment.Scan  ...
-            * (pro(preprocess.Spikes,'spike_method->spike_inference','extract_method->segment_method') ...
-            & 'spike_inference = 3'  & 'segment_method=2'))...
+        popRel  = (rf.Scan & pre.Spikes) ...
+            * (pre.SpikeInference & 'spike_inference = 2')...
+            * pre.SegmentMethod ...
             * (mov3d.DecodeOpt & 'process = "yes"') ...
-            * (preprocess.Sync & (vis.MovieClipCond & (vis.Movie & 'movie_class="object3d"')))
-           
+            * (rf.Sync & (psy.MovieClipCond & (psy.MovieInfo & 'movie_class="object3d"'))) ...
+            & pre.Spikes
     end
     
     methods(Access=protected)
@@ -48,8 +48,6 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             
             % run the decoding
             for itrial = 1:trial_bins
-                display(['Decoding trial # ' num2str(itrial)])
-                 
                 data = Data(:,:,trial_idx(...
                     1+trial_bin*(itrial-1):trial_bin*itrial));
                 
@@ -93,23 +91,23 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             
             AA = []; BB = [];
             
-            nslices = fetch1(preprocess.PrepareGalvo & key, 'nslices');
+            nslices = fetch1(pre.ScanInfo & key, 'nslices');
             
             for islice = 1:nslices
                 key.slice = islice;
                 
-                caTimes = fetch1(preprocess.Sync &  (experiment.Scan & key), 'frame_times');
+                caTimes = fetch1(rf.Sync &  (rf.Scan & key), 'frame_times');
                 
                 caTimes = caTimes(key.slice:nslices:end);
                 [X, xloc{islice}, yloc{islice}, zloc{islice}] = ...
-                    fetchn(preprocess.SpikesRateTrace * preprocess.MaskCoordinates & key,...
-                    'rate_trace','xloc','yloc','zloc');
+                    fetchn(pre.Spikes * pre.MaskCoordinates & key,...
+                    'spike_trace','xloc','yloc','zloc');
                 X = [X{:}];
                 xm = min([length(caTimes) length(X)]);
                 X = @(t) interp1(caTimes(1:xm)-caTimes(1), X(1:xm,:), t, 'linear', nan);  % traces indexed by time
                 
-                trials = pro(preprocess.Sync*vis.Trial & (experiment.Scan & key) & 'trial_idx between first_trial and last_trial', 'cond_idx', 'flip_times');
-                trials = fetch(trials*vis.MovieClipCond, '*', 'ORDER BY trial_idx'); %fetch(trials*psy.Movie, '*', 'ORDER BY trial_idx') 2016-08
+                trials = pro(rf.Sync*psy.Trial & (rf.Scan & key) & 'trial_idx between first_trial and last_trial', 'cond_idx', 'flip_times');
+                trials = fetch(trials*psy.MovieClipCond, '*', 'ORDER BY trial_idx'); %fetch(trials*psy.Movie, '*', 'ORDER BY trial_idx') 2016-08
                 
                 snippet = []; % traces: {object,trials}(subbin,cells)
                 stims = [2 1];
@@ -155,7 +153,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             areas =  fetchn(map.Area,'area');
             for iarea = 1:length(areas)
                 
-                keys = fetch(obj & key & (experiments.Scan & ['cortical_area="' areas{iarea} '"']));
+                keys = fetch(obj & key & (rf.Scan & ['cortical_area="' areas{iarea} '"']));
                 if isempty(keys);continue;end
                 for ikey = 1:length(keys)
                     tuple = keys(ikey);
@@ -173,7 +171,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
         
         function plotMasksNorm(obj)
             key.dec_opt = 1;
-            sessions = fetch(experiments.Session & obj);
+            sessions = fetch(rf.Session & obj);
             areas =  fetchn(map.Area,'area');
             
             MI = nan(length(areas),length(sessions));
@@ -241,7 +239,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             for idx = 1:length(keys)
                 tuple = keys(idx);
                 mi = fetch1(mov3d.Decode & tuple,'mi');
-                [name,name2] = fetch1(experiments.Scan & tuple,'cortical_area','scan_notes');
+                [name,name2] = fetch1(rf.Scan & tuple,'cortical_area','scan_notes');
                 if strcmp(name,'other');name = name2;end
                 errorPlot(1:size(mi,2),mi,'errorColor',colors(idx,:),'linestyle',linestyle);
                 names{idx} = name;
@@ -251,8 +249,8 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             xlabel('Neuron #')
             ylabel('Mutual Information (bits)')
             set(gca,'box','off')
-                        l = legend(names);
-                        set(l,'box','off','location','northwest')
+            %             l = legend(names);
+            %             set(l,'box','off','location','northwest')
             title('Classifier: SVM, Bin size = 0.5sec')
         end
         

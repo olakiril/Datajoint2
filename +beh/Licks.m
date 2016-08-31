@@ -130,7 +130,6 @@ classdef Licks < dj.Relvar
 
             ylim([-1 10])
             grid on
-        end
     end
     
     

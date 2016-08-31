@@ -1,9 +1,9 @@
 %{
 mov3d.DecodeTime (computed) # calcium trace
--> rf.Sync
+-> preprocess.Sync
 -> mov3d.DecodeOpt
--> pre.SpikeInference
--> pre.SegmentMethod
+-> preprocess.SpikeMethod
+-> preprocess.Method
 ---
 obj_cis                      : longblob                      # classification performance for trials that follow same object
 obj_trans                    : longblob                      # classification performance for trials that follow opposite object
@@ -14,12 +14,11 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
     %#ok<*INUSL>
     
     properties
-        popRel  = (rf.Scan & pre.Spikes) ...
-            * (pre.SpikeInference & 'spike_inference = 2')...
-            * pre.SegmentMethod ...
+        popRel  = (experiment.Scan  ...
+            * (pro(preprocess.Spikes,'spike_method->spike_inference','extract_method->segment_method') ...
+            & 'spike_inference = 3'  & 'segment_method=2'))...
             * (mov3d.DecodeTimeOpt & 'process = "yes"') ...
-            * (rf.Sync & (psy.MovieClipCond & (psy.MovieInfo & 'movie_class="object3d"'))) ...
-            & pre.Spikes
+            * (preprocess.Sync & (vis.MovieClipCond & (vis.Movie & 'movie_class="object3d"')))
     end
     
     methods(Access=protected)
@@ -43,21 +42,22 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
             end
             trial_bin = floor(size(Data,3)/trial_bins);
             minBinNum = mode(diff(find(abs(diff(reshape(Trials',[],1)))>0)));
-            obj_cis = [];
-            obj_trans =[];
+            obj_cis = cell(trial_bins,1);
+            obj_trans = cell(trial_bins,1);
             % run the decoding
-            
+    
             parfor itrial = 1:trial_bins
+                
                 display(['Decoding trial # ' num2str(itrial)])
                 tIdx = trial_idx(...
                     1+trial_bin*(itrial-1):trial_bin*itrial);
                 data = Data(:,:,tIdx);
                 trials = Trials(:,tIdx);
+              
                 if strcmp(dec_method,'nnclassSV')
                    % mi = eval([dec_method '(data,''trials'',1)']);
                    mi = nnclassSV(data,'trials',1);
                 end
-                 
                 utrials = unique(trials(:));
                 
                 cis = [];
@@ -66,7 +66,7 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
                     idx = find(trials==utrials(iseg));
                     [x,~] = ind2sub(size(trials),idx);
                     [xbef,~] = ind2sub(size(trials),find(trials==utrials(iseg-1)));
-                    if all(xbef==x)
+                    if all(xbef(end)==x)
                         cis{end+1} = mi(idx);
                     elseif all(xbef~=x)
                         trans{end+1} = mi(idx);
@@ -89,34 +89,30 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
     methods
         function [Data, xloc, yloc, zloc, Trials] = getData(obj,key,ibin)
          
-            [bin, rf_idx] = fetch1(mov3d.DecodeTimeOpt & key, 'binsize','restrict_rf');
+            bin = fetch1(mov3d.DecodeTimeOpt & key, 'binsize');
             if nargin>2;bin = ibin;end
             
-            if rf_idx > 0;
-                index = true;
-                [rf_idx, rf_trials] = fetch1(mov3d.RFFilter & key,'rf_idx','rf_trials');
-            else index = false;
-            end
+          
             
             AA = []; BB = [];
             
-             nslices = fetch1(pre.ScanInfo & key, 'nslices');
+            nslices = fetch1(preprocess.PrepareGalvo & key, 'nslices');
             
             for islice = 1:nslices
                 key.slice = islice;
                 
-                caTimes = fetch1(rf.Sync &  (rf.Scan & key), 'frame_times');
+                caTimes = fetch1(preprocess.Sync &  (experiment.Scan & key), 'frame_times');
                 
                 caTimes = caTimes(key.slice:nslices:end);
-                 [X, xloc{islice}, yloc{islice}, zloc{islice}] = ...
-                    fetchn(pre.Spikes * pre.MaskCoordinates & key,...
-                    'spike_trace','xloc','yloc','zloc');
+                [X, xloc{islice}, yloc{islice}, zloc{islice}] = ...
+                    fetchn(preprocess.SpikesRateTrace * preprocess.MaskCoordinates & key,...
+                    'rate_trace','xloc','yloc','zloc');
                 X = [X{:}];
                 xm = min([length(caTimes) length(X)]);
                 X = @(t) interp1(caTimes(1:xm)-caTimes(1), X(1:xm,:), t, 'linear', nan);  % traces indexed by time
                 
-                trials = pro(rf.Sync*psy.Trial & (rf.Scan & key) & 'trial_idx between first_trial and last_trial', 'cond_idx', 'flip_times');
-                trials = fetch(trials*psy.MovieClipCond, '*', 'ORDER BY trial_idx'); %fetch(trials*psy.Movie, '*', 'ORDER BY trial_idx') 2016-08
+                trials = pro(preprocess.Sync*vis.Trial & (experiment.Scan & key) & 'trial_idx between first_trial and last_trial', 'cond_idx', 'flip_times');
+                trials = fetch(trials*vis.MovieClipCond, '*', 'ORDER BY trial_idx'); %fetch(trials*psy.Movie, '*', 'ORDER BY trial_idx') 2016-08
                 
                 snippet = []; % traces: {object,trials}(subbin,cells)
                 stims = [2 1];
@@ -131,7 +127,6 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
                     d = max(1,round(bin/1000*fps));
                     trace = convn(X(t),ones(d,1)/d,'same');
                     trace = trace(1:d:end,:);
-                    if index; trace = trace(rf_idx{trial.trial_idx==rf_trials},:);end
                     snippet{stim,idx} = trace;
                     trial_idx{stim,idx} = repmat(trial.trial_idx,size(trace,1),1);
                 end

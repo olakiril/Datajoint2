@@ -285,7 +285,7 @@ classdef Scan < dj.Relvar & dj.AutoPopulate
             
         end
         
-        function plotTraces(obj,xl)
+        function plotTraces(obj)
             
             keys = fetch(obj);
             for session = keys
@@ -301,7 +301,7 @@ classdef Scan < dj.Relvar & dj.AutoPopulate
                 T = cell2mat(traces');
                 
                 tr = double(T);
-                k = hamming(round(fps/2)*1+1);
+                k = hamming(round(fps/2)*2+1);
                 k = k/sum(k);
                 tr = convmirr(tr,k);
                 
@@ -311,8 +311,7 @@ classdef Scan < dj.Relvar & dj.AutoPopulate
                 % plot stimuli
                 ustim = unique(stimuli);
                 colors = hsv(length(ustim));
-                colors = cbrewer('qual','Pastel1',length(ustim));
-%                 colors(colors==0) = 0.8;
+                colors(colors==0) = 0.8;
                 for itrial = 1:length(strials)
                     start = find(ftrials==strials(itrial),1,'first');
                     stop = find(ftrials==strials(itrial),1,'last');
