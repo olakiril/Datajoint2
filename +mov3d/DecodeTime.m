@@ -30,8 +30,8 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
                 fetch1(mov3d.DecodeTimeOpt & key,...
                 'decode_method','trial_bins','trial_method');
             
-            [Data, ~, ~, ~, Trials] = getData(self,key); % [Cells, Obj, Trials]
-                       
+            [Data, Trials] = getData(self,key); % [Cells, Obj, Trials]
+            
             % create trial index
             switch trial_method
                 case 'random'
@@ -44,7 +44,7 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
             obj_cis = cell(trial_bins,1);
             obj_trans = cell(trial_bins,1);
             % run the decoding
-    
+            
             parfor itrial = 1:trial_bins
                 
                 display(['Decoding trial # ' num2str(itrial)])
@@ -52,10 +52,10 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
                     1+trial_bin*(itrial-1):trial_bin*itrial);
                 data = Data(:,:,tIdx);
                 trials = Trials(:,tIdx);
-              
+                
                 if strcmp(dec_method,'nnclassSV')
-                   % mi = eval([dec_method '(data,''trials'',1)']);
-                   mi = nnclassSV(data,'trials',1);
+                    % mi = eval([dec_method '(data,''trials'',1)']);
+                    mi = nnclassSV(data,'trials',1);
                 end
                 utrials = unique(trials(:));
                 
@@ -91,72 +91,53 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
     end
     
     methods
-        function [Data, xloc, yloc, zloc, Trials] = getData(obj,key,ibin)
-         
+        function [Data, Trials] = getData(obj,key,ibin)
+            
             bin = fetch1(mov3d.DecodeTimeOpt & key, 'binsize');
             if nargin>2;bin = ibin;end
+                      
+            [Traces, caTimes] = pipetools.getAdjustedSpikes(key);
+            xm = min([length(caTimes) size(Traces,1)]);
+            X = @(t) interp1(caTimes(1:xm)-caTimes(1), Traces(1:xm,:), t, 'linear', nan);  % traces indexed by time
             
-          
+            trials = pro(preprocess.Sync*vis.Trial & (experiment.Scan & key) & 'trial_idx between first_trial and last_trial', 'cond_idx', 'flip_times');
+            trials = fetch(trials*vis.MovieClipCond, '*', 'ORDER BY trial_idx'); %fetch(trials*psy.Movie, '*', 'ORDER BY trial_idx') 2016-08
             
-            AA = []; BB = [];
-            
-            nslices = fetch1(preprocess.PrepareGalvo & key, 'nslices');
-            
-            for islice = 1:nslices
-                key.slice = islice;
-                
-                caTimes = fetch1(preprocess.Sync &  (experiment.Scan & key), 'frame_times');
-                
-                caTimes = caTimes(key.slice:nslices:end);
-                [X, xloc{islice}, yloc{islice}, zloc{islice}] = ...
-                    fetchn(preprocess.SpikesRateTrace * preprocess.MaskCoordinates & key,...
-                    'rate_trace','xloc','yloc','zloc');
-                X = [X{:}];
-                xm = min([length(caTimes) length(X)]);
-                X = @(t) interp1(caTimes(1:xm)-caTimes(1), X(1:xm,:), t, 'linear', nan);  % traces indexed by time
-                
-                trials = pro(preprocess.Sync*vis.Trial & (experiment.Scan & key) & 'trial_idx between first_trial and last_trial', 'cond_idx', 'flip_times');
-                trials = fetch(trials*vis.MovieClipCond, '*', 'ORDER BY trial_idx'); %fetch(trials*psy.Movie, '*', 'ORDER BY trial_idx') 2016-08
-                
-                snippet = []; % traces: {object,trials}(subbin,cells)
-                stims = [2 1];
-                idx = 0;
-                trial_idx = [];
-                for trial = trials'
-                    idx = idx+1;
-                    stim = stims(~isempty(strfind(trial.movie_name,'obj1'))+1); % stims(~isempty(strfind(trial.path_template,'obj1'))+1); 2016-08
-                    % extract relevant trace & bin
-                    fps = 1/median(diff(trial.flip_times));
-                    t = trial.flip_times - caTimes(1);
-                    d = max(1,round(bin/1000*fps));
-                    trace = convn(X(t),ones(d,1)/d,'same');
-                    trace = trace(1:d:end,:);
-                    snippet{stim,idx} = trace;
-                    trial_idx{stim,idx} = repmat(trial.trial_idx,size(trace,1),1);
-                end
-                
-                A = snippet(1,:);
-                A_trials = trial_idx(1,:);
-                idx = ~cellfun(@isempty,A);
-                A = A(idx);
-                A_trials = A_trials(idx);
-                AA{islice} = permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),A,'uni',0)'),size(A{1},2),[]),[3 1 2]);
-                AA_trials{islice} = permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),A_trials,'uni',0)'),size(A_trials{1},2),[]),[3 1 2]);
-                
-                B = snippet(2,:);
-                B_trials = trial_idx(2,:);
-                idx = ~cellfun(@isempty,B);
-                B = B(idx);
-                B_trials = B_trials(idx);
-                BB{islice} = permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),B,'uni',0)'),size(B{1},2),[]),[3 1 2]);
-                BB_trials{islice} = permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),B_trials,'uni',0)'),size(B_trials{1},2),[]),[3 1 2]);
+            snippet = []; % traces: {object,trials}(subbin,cells)
+            stims = [2 1];
+            idx = 0;
+            trial_idx = [];
+            for trial = trials'
+                idx = idx+1;
+                stim = stims(~isempty(strfind(trial.movie_name,'obj1'))+1); % stims(~isempty(strfind(trial.path_template,'obj1'))+1); 2016-08
+                % extract relevant trace & bin
+                fps = 1/median(diff(trial.flip_times));
+                t = trial.flip_times - caTimes(1);
+                d = max(1,round(bin/1000*fps));
+                trace = convn(X(t),ones(d,1)/d,'same');
+                trace = trace(1:d:end,:);
+                snippet{stim,idx} = trace;
+                trial_idx{stim,idx} = repmat(trial.trial_idx,size(trace,1),1);
             end
             
+            A = snippet(1,:);
+            A_trials = trial_idx(1,:);
+            idx = ~cellfun(@isempty,A);
+            A = A(idx);
+            A_trials = A_trials(idx);
+            objA = permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),A,'uni',0)'),size(A{1},2),[]),[3 1 2]);
+            objA_trials = permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),A_trials,'uni',0)'),size(A_trials{1},2),[]),[3 1 2]);
+            
+            B = snippet(2,:);
+            B_trials = trial_idx(2,:);
+            idx = ~cellfun(@isempty,B);
+            B = B(idx);
+            B_trials = B_trials(idx);
+            objB = permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),B,'uni',0)'),size(B{1},2),[]),[3 1 2]);
+            objB_trials = permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),B_trials,'uni',0)'),size(B_trials{1},2),[]),[3 1 2]);
+            
+            
             % Arrange data
-            objA = cell2mat(AA);
-            objA_trials = cell2mat(AA_trials);
-            objB = cell2mat(BB);
-            objB_trials = cell2mat(BB_trials);
             mS = min([size(objA,3) size(objB,3)]);
             Data = reshape(permute(objA(:,:,1:mS),[2 4 3 1]),size(objA,2),1,[]);
             Data(:,2,:) = reshape(permute(objB(:,:,1:mS),[2 4 3 1]),size(objB,2),1,[]);
@@ -164,7 +145,7 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
             Trials(:,2,:) = reshape(permute(objB_trials(:,:,1:mS),[2 4 3 1]),size(objB_trials,2),1,[]);
             Trials = squeeze(Trials(1,:,:));
         end
-   
+        
         function plot(obj,k)
             bin = fetch1(mov3d.DecodeTimeOpt & k,'binsize');
             obj_cis = fetch1(mov3d.DecodeTime & k,'obj_cis');
@@ -178,7 +159,7 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
             hold on
             errorPlot(1:size(cis,1),trans','errorColor',[0.5 0 0])
             ylim([0.5 1])
-            set(gca, 'xtick',1:size(cis,1),'xticklabel',bin/1000:bin/1000:5) 
+            set(gca, 'xtick',1:size(cis,1),'xticklabel',bin/1000:bin/1000:5)
         end
     end
     

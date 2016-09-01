@@ -106,7 +106,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
                 
                 caTimes = fetch1(preprocess.Sync &  (experiment.Scan & key), 'frame_times');
                 
-                caTimes = caTimes(key.slice:nslices:end);
+                caTimes = caTimes(1:nslices:end);
                 [X, xloc{islice}, yloc{islice}, zloc{islice}] = ...
                     fetchn(preprocess.SpikesRateTrace * preprocess.MaskCoordinates & key,...
                     'rate_trace','xloc','yloc','zloc');
@@ -133,13 +133,11 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
                 
                 A = snippet(1,:);
                 A = A(~cellfun(@isempty,A));
-                %                 AA{islice} = reshape(cell2mat(A),size(A{1},1),size(A{1},2),[]); % [bins cells trials]
-                AA{islice} = permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),A,'uni',0)'),size(A{1},2),[]),[3 1 2]);
+                objA = permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),A,'uni',0)'),size(A{1},2),[]),[3 1 2]);
                 
                 B = snippet(2,:);
                 B = B(~cellfun(@isempty,B));
-                %                 BB{islice} = reshape(cell2mat(B),size(B{1},1),size(B{1},2),[]);
-                BB{islice} =  permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),B,'uni',0)'),size(B{1},2),[]),[3 1 2]);
+                objB = permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),B,'uni',0)'),size(B{1},2),[]),[3 1 2]);
             end
             
             % Arrange data
