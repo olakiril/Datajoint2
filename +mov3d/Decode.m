@@ -55,19 +55,19 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
                 
                 switch sel_method
                     case 'all'
-                        mi{itrial} = decode(self,data,dec_method);
+                        mi{itrial} = decode(data,dec_method);
                     case 'subsample'
                         cell_idx = randperm(size(Data,1));
                         for icell = 1:size(Data,1)
                             dat = data(cell_idx(1:icell),:,:); 
-                            mi{itrial}(icell) = decode(self,dat,dec_method);
+                            mi{itrial}(icell) = decode(dat,dec_method);
                         end
                     case 'expand'
                         cell_idx = randperm(size(Data,1),1);
                         [~,sort_idx] = sort(abs(pdist2([xloc(cell_idx),yloc(cell_idx),zloc(cell_idx)],[xloc,yloc,zloc])),'ascend');
                         dat = data(sort_idx,:,:);
                         for icell = 1:size(Data,1)
-                            mi{itrial}(icell) = decode(self,dat(1:icell,:,:),dec_method);
+                            mi{itrial}(icell) = decode(dat(1:icell,:,:),dec_method);
                         end
                 end
             end
@@ -149,20 +149,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             Data = reshape(permute(objA(:,:,1:mS),[2 4 3 1]),size(objA,2),1,[]);
             Data(:,2,:) = reshape(permute(objB(:,:,1:mS),[2 4 3 1]),size(objB,2),1,[]);
         end
-        
-        function mi = decode(obj,data,dec_method)
-            switch dec_method
-                case 'nnclassRaw'
-                    mi = nnclassRaw(data);
-                case 'nnclassRawSV'
-                    mi = nnclassRawSV(data);
-                case 'nnclass'
-                    mi = nnclass(data);
-                case 'nnclassSV'
-                    mi = nnclassSV(data);
-            end
-        end
-        
+                
         function plotMasks(obj,key)
             figure
             colors = parula(50);
