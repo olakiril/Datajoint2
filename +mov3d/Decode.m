@@ -245,7 +245,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             for idx = 1:length(keys)
                 tuple = keys(idx);
                 mi = fetch1(mov3d.Decode & tuple,'mi');
-                [name,name2] = fetch1(experiments.Scan & tuple,'cortical_area','scan_notes');
+                [name,name2] = fetch1(experiment.Scan & tuple,'cortical_area','scan_notes');
                 if strcmp(name,'other');name = name2;end
                 errorPlot(1:size(mi,2),mi,'errorColor',colors(idx,:),'linestyle',linestyle);
                 names{idx} = name;

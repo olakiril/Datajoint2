@@ -161,7 +161,7 @@ classdef ReduceDM < dj.Relvar & dj.AutoPopulate
                 frameStep = fps(iobj)*binsize/1000; % in frames
                 frameIdx = 1:frameStep:paramsObj{iobj}.frames(end);
                 int_params{iobj} = nan(length(frameIdx),size(par,2));
-                for iparam = 1:size(par,2);
+                for iparam = 1:size(par,2)
                     int_params{iobj}(:,iparam) = interpn(paramsObj{iobj}.frames,par(:,iparam),frameIdx,'cubic');
                 end
             end
@@ -183,24 +183,25 @@ classdef ReduceDM < dj.Relvar & dj.AutoPopulate
             end
         end
         
-        function plotParams(obj,param)
+        function plotParams(obj,param,object)
             
             [NewParams,trials,mappedX,Labels] = fetch1(obj,'params','trials','mapped','labels');
             
             if nargin<2;param = 1;end
+            if nargin<3;object=1;end
             
             tbin = 3;
             uTrials = unique(trials);
-            figure
-            hold on;
+%             figure
+%             hold on;
             param = squeeze(normalize(NewParams(param,:)));
             
-            for itrial = 2:length(uTrials);
+            for itrial = 2:length(uTrials)
                 
                 trialIdx = trials==uTrials(itrial);
-                tIdx = all(Labels(trialIdx)==2);
+                tIdx = all(Labels(trialIdx)==object);
                 
-                if tIdx==1;continue;end
+                if tIdx;continue;end
                 
                 
                 xx = interpn(mappedX(trialIdx,1),tbin,'cubic');
