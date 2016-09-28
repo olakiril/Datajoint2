@@ -32,9 +32,6 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             
             [Data, xloc, yloc, zloc] = getData(self,key); % [Cells, Obj, Trials]
             
-            % compute distances for 'expand' method
-            xloc = cell2mat(xloc');yloc = cell2mat(yloc');zloc = cell2mat(zloc');
-            
             % create trial index
             switch trial_method
                 case 'random'
@@ -59,7 +56,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
                     case 'subsample'
                         cell_idx = randperm(size(Data,1));
                         for icell = 1:size(Data,1)
-                            dat = data(cell_idx(1:icell),:,:); 
+                            dat = data(cell_idx(1:icell),:,:);
                             mi{itrial}(icell) = decode(dat,dec_method);
                         end
                     case 'expand'
@@ -73,7 +70,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             end
             
             % insert
-            tuple.mi = cell2mat(mi')';
+            tuple.mi = cell2mat(mi)';
             
             % correct for key mismach
             tuple = rmfield(tuple,'spike_method');
@@ -91,63 +88,51 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             [bin, rf_idx] = fetch1(mov3d.DecodeOpt & key, 'binsize','restrict_rf');
             if nargin>2;bin = ibin;end
             
-            if rf_idx > 0;
+            if rf_idx > 0
                 index = true;
                 [rf_idx, rf_trials] = fetch1(mov3d.RFFilter & key,'rf_idx','rf_trials');
-            else index = false;
+            else
+                index = false;
+            end
+
+            [Traces, caTimes] = pipetools.getAdjustedSpikes(key);
+            [xloc, yloc, zloc] = ...
+                fetchn(preprocess.MaskCoordinates & key,...
+                'xloc','yloc','zloc');
+            xm = min([length(caTimes) length(Traces)]);
+            X = @(t) interp1(caTimes(1:xm)-caTimes(1), Traces(1:xm,:), t, 'linear', nan);  % traces indexed by time
+            
+            trials = pro(preprocess.Sync*vis.Trial & (experiment.Scan & key) & 'trial_idx between first_trial and last_trial', 'cond_idx', 'flip_times');
+            trials = fetch(trials*vis.MovieClipCond, '*', 'ORDER BY trial_idx'); %fetch(trials*psy.Movie, '*', 'ORDER BY trial_idx') 2016-08
+            
+            snippet = []; % traces: {object,trials}(subbin,cells)
+            stims = [2 1];
+            for trial = trials'
+                stim = stims(~isempty(strfind(trial.movie_name,'obj1'))+1); % stims(~isempty(strfind(trial.path_template,'obj1'))+1); 2016-08
+                % extract relevant trace & bin
+                fps = 1/median(diff(trial.flip_times));
+                t = trial.flip_times - caTimes(1);
+                d = max(1,round(bin/1000*fps));
+                trace = convn(X(t),ones(d,1)/d,'same');
+                trace = trace(1:d:end,:);
+                if index; trace = trace(rf_idx{trial.trial_idx==rf_trials},:);end
+                snippet{stim,end+1} = trace;
             end
             
-            AA = []; BB = [];
+            A = snippet(1,:);
+            A = A(~cellfun(@isempty,A));
+            objA = permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),A,'uni',0)'),size(A{1},2),[]),[3 1 2]);
             
-            nslices = fetch1(preprocess.PrepareGalvo & key, 'nslices');
-            
-            for islice = 1:nslices
-                key.slice = islice;
-                
-                caTimes = fetch1(preprocess.Sync &  (experiment.Scan & key), 'frame_times');
-                
-                caTimes = caTimes(1:nslices:end);
-                [X, xloc{islice}, yloc{islice}, zloc{islice}] = ...
-                    fetchn(preprocess.SpikesRateTrace * preprocess.MaskCoordinates & key,...
-                    'rate_trace','xloc','yloc','zloc');
-                X = [X{:}];
-                xm = min([length(caTimes) length(X)]);
-                X = @(t) interp1(caTimes(1:xm)-caTimes(1), X(1:xm,:), t, 'linear', nan);  % traces indexed by time
-                
-                trials = pro(preprocess.Sync*vis.Trial & (experiment.Scan & key) & 'trial_idx between first_trial and last_trial', 'cond_idx', 'flip_times');
-                trials = fetch(trials*vis.MovieClipCond, '*', 'ORDER BY trial_idx'); %fetch(trials*psy.Movie, '*', 'ORDER BY trial_idx') 2016-08
-                
-                snippet = []; % traces: {object,trials}(subbin,cells)
-                stims = [2 1];
-                for trial = trials'
-                    stim = stims(~isempty(strfind(trial.movie_name,'obj1'))+1); % stims(~isempty(strfind(trial.path_template,'obj1'))+1); 2016-08
-                    % extract relevant trace & bin
-                    fps = 1/median(diff(trial.flip_times));
-                    t = trial.flip_times - caTimes(1);
-                    d = max(1,round(bin/1000*fps));
-                    trace = convn(X(t),ones(d,1)/d,'same');
-                    trace = trace(1:d:end,:);
-                    if index; trace = trace(rf_idx{trial.trial_idx==rf_trials},:);end
-                    snippet{stim,end+1} = trace;
-                end
-                
-                A = snippet(1,:);
-                A = A(~cellfun(@isempty,A));
-                objA = permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),A,'uni',0)'),size(A{1},2),[]),[3 1 2]);
-                
-                B = snippet(2,:);
-                B = B(~cellfun(@isempty,B));
-                objB = permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),B,'uni',0)'),size(B{1},2),[]),[3 1 2]);
-            end
+            B = snippet(2,:);
+            B = B(~cellfun(@isempty,B));
+            objB = permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),B,'uni',0)'),size(B{1},2),[]),[3 1 2]);
             
             % Arrange data
-            objA = cell2mat(AA);
-            objB = cell2mat(BB);
             mS = min([size(objA,3) size(objB,3)]);
             Data = reshape(permute(objA(:,:,1:mS),[2 4 3 1]),size(objA,2),1,[]);
             Data(:,2,:) = reshape(permute(objB(:,:,1:mS),[2 4 3 1]),size(objB,2),1,[]);
         end
-                
+        
         function plotMasks(obj,key)
             figure
             colors = parula(50);
@@ -223,7 +208,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             end
             
             if ~isfield(key,'spike_inference')
-                key.spike_inference = 2;
+                key.spike_inference = 3;
             end
             
             if ~isfield(key,'segment_method')
@@ -244,10 +229,12 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             names = [];
             for idx = 1:length(keys)
                 tuple = keys(idx);
+                bins = fetch1(mov3d.DecodeOpt & tuple,'trial_bins');
                 mi = fetch1(mov3d.Decode & tuple,'mi');
-                [name,name2] = fetch1(experiment.Scan & tuple,'cortical_area','scan_notes');
+                if ~any(size(mi)==bins);mi = reshape(mi(:),[],bins);end
+                [name,name2] = fetch1(experiment.Scan & tuple,'brain_area','scan_notes');
                 if strcmp(name,'other');name = name2;end
-                errorPlot(1:size(mi,2),mi,'errorColor',colors(idx,:),'linestyle',linestyle);
+                errorPlot(1:size(mi,1),mi','errorColor',colors(idx,:),'linestyle',linestyle);
                 names{idx} = name;
             end
             
