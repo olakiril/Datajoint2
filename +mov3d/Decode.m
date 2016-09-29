@@ -70,7 +70,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             end
             
             % insert
-            tuple.mi = cell2mat(mi)';
+            tuple.mi = cell2mat(mi); % [trials cells]
             
             % correct for key mismach
             tuple = rmfield(tuple,'spike_method');
@@ -202,7 +202,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
         end
         
         function plot(obj,key,colors,linestyle)
-            if nargin<2; key = [];end
+            if nargin<2; key = fetch(obj);end
             if ~isfield(key,'dec_opt')
                 key.dec_opt = 11;
             end
@@ -229,12 +229,10 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             names = [];
             for idx = 1:length(keys)
                 tuple = keys(idx);
-                bins = fetch1(mov3d.DecodeOpt & tuple,'trial_bins');
-                mi = fetch1(mov3d.Decode & tuple,'mi');
-                if ~any(size(mi)==bins);mi = reshape(mi(:),[],bins);end
+                 mi = fetch1(mov3d.Decode & tuple,'mi');
                 [name,name2] = fetch1(experiment.Scan & tuple,'brain_area','scan_notes');
                 if strcmp(name,'other');name = name2;end
-                errorPlot(1:size(mi,1),mi','errorColor',colors(idx,:),'linestyle',linestyle);
+                errorPlot(1:size(mi,2),mi,'errorColor',colors(idx,:),'linestyle',linestyle);
                 names{idx} = name;
             end
             
