@@ -227,21 +227,33 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             end
             
             names = [];
+            figure
+            hold on
             for idx = 1:length(keys)
                 tuple = keys(idx);
                  mi = fetch1(mov3d.Decode & tuple,'mi');
                 [name,name2] = fetch1(experiment.Scan & tuple,'brain_area','scan_notes');
                 if strcmp(name,'other');name = name2;end
-                errorPlot(1:size(mi,2),mi,'errorColor',colors(idx,:),'linestyle',linestyle);
+                if size(mi,2)>1
+                    errorPlot(1:size(mi,2),mi,'errorColor',colors(idx,:),'linestyle',linestyle);
+                else
+                    errorbar(idx,mean(mi),std(mi)/sqrt(length(mi)),'.');
+                end
                 names{idx} = name;
             end
             
+            if size(mi,2)>1
+                xlabel('Neuron #')
+                l = legend(names);
+                set(l,'box','off','location','northwest')
+            else
+                ylim([0 max(get(gca,'ylim'))])
+                set(gca,'xtick',1:length(keys),'xticklabel',names)
+                xlim([0 length(keys)+1])
+            end
             
-            xlabel('Neuron #')
             ylabel('Mutual Information (bits)')
             set(gca,'box','off')
-            l = legend(names);
-            set(l,'box','off','location','northwest')
             title('Classifier: SVM, Bin size = 0.5sec')
         end
         

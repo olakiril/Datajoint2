@@ -83,8 +83,11 @@ classdef ReduceDM < dj.Relvar & dj.AutoPopulate
     methods
         function [Data, Trials, Params] = getData(obj,key,ibin)
             
-            bin = fetch1(mov3d.ReduceDMOpt & key, 'binsize');
-            if nargin>2;bin = ibin;end
+            if nargin<3
+                bin = fetch1(mov3d.ReduceDMOpt & key, 'binsize');
+            else
+                 bin = ibin;
+            end
             
             [Traces, caTimes] = pipetools.getAdjustedSpikes(key);
             xm = min([length(caTimes) size(Traces,1)]);
@@ -145,6 +148,7 @@ classdef ReduceDM < dj.Relvar & dj.AutoPopulate
         
         function [params, param_trials] = getParams(obj,key,bin)
             
+            speed = @(x,y,timestep) sqrt(x.^2+y.^2)./timestep;
             binsize= fetch1(mov3d.ReduceDMOpt & key, 'binsize');
             if nargin>2;binsize = bin;end
             
@@ -154,10 +158,11 @@ classdef ReduceDM < dj.Relvar & dj.AutoPopulate
             
             int_params = [];
             for iobj = 1:length(obj)
-                
+                timestep = mean(diff(paramsObj{iobj}.frames))/fps(iobj);
                 par = struct2array(paramsObj{iobj});
                 
                 par = par(:,[14 16:end]);
+                par(:,end+1) = [0;speed(diff(par(:,1)),diff(par(:,2)),timestep)];
                 frameStep = fps(iobj)*binsize/1000; % in frames
                 frameIdx = 1:frameStep:paramsObj{iobj}.frames(end);
                 int_params{iobj} = nan(length(frameIdx),size(par,2));
