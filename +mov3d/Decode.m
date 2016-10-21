@@ -83,7 +83,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
     end
     
     methods
-        function [Data, xloc, yloc, zloc] = getData(obj,key,ibin)
+        function [Data, xloc, yloc, zloc, Trials, Params] = getData(obj,key,ibin)
             
             [bin, rf_idx] = fetch1(mov3d.DecodeOpt & key, 'binsize','restrict_rf');
             if nargin>2;bin = ibin;end
@@ -94,7 +94,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             else
                 index = false;
             end
-
+            
             [Traces, caTimes] = pipetools.getAdjustedSpikes(key);
             [xloc, yloc, zloc] = ...
                 fetchn(preprocess.MaskCoordinates & key,...
@@ -107,7 +107,10 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             
             snippet = []; % traces: {object,trials}(subbin,cells)
             stims = [2 1];
+            idx = 0;
+            trial_idx = [];
             for trial = trials'
+                idx = idx+1;
                 stim = stims(~isempty(strfind(trial.movie_name,'obj1'))+1); % stims(~isempty(strfind(trial.path_template,'obj1'))+1); 2016-08
                 % extract relevant trace & bin
                 fps = 1/median(diff(trial.flip_times));
@@ -116,21 +119,84 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
                 trace = convn(X(t),ones(d,1)/d,'same');
                 trace = trace(1:d:end,:);
                 if index; trace = trace(rf_idx{trial.trial_idx==rf_trials},:);end
-                snippet{stim,end+1} = trace;
+                snippet{stim,idx} = trace;
+                trial_idx{stim,idx} = repmat(trial.trial_idx,size(trace,1),1);
             end
             
             A = snippet(1,:);
-            A = A(~cellfun(@isempty,A));
+            Aidx = ~cellfun(@isempty,A);
+            A = A(Aidx);
             objA = permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),A,'uni',0)'),size(A{1},2),[]),[3 1 2]);
-            
             B = snippet(2,:);
-            B = B(~cellfun(@isempty,B));
+            Bidx = ~cellfun(@isempty,B);
+            B = B(Bidx);
             objB = permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),B,'uni',0)'),size(B{1},2),[]),[3 1 2]);
-            
+         
             % Arrange data
             mS = min([size(objA,3) size(objB,3)]);
             Data = reshape(permute(objA(:,:,1:mS),[2 4 3 1]),size(objA,2),1,[]);
             Data(:,2,:) = reshape(permute(objB(:,:,1:mS),[2 4 3 1]),size(objB,2),1,[]);
+            
+            % get Trials
+            A_trials = trial_idx(1,:);
+            A_trials = A_trials(Aidx);
+            objA_trials = permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),A_trials,'uni',0)'),size(A_trials{1},2),[]),[3 1 2]);
+            B_trials = trial_idx(2,:);
+            B_trials = B_trials(Bidx);
+            objB_trials = permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),B_trials,'uni',0)'),size(B_trials{1},2),[]),[3 1 2]);
+            Trials = reshape(permute(objA_trials(:,:,1:mS),[2 4 3 1]),size(objA_trials,2),1,[]);
+            Trials(:,2,:) = reshape(permute(objB_trials(:,:,1:mS),[2 4 3 1]),size(objB_trials,2),1,[]);
+            Trials = squeeze(Trials(1,:,:));
+            
+            % get params
+            [params, param_trials] = getParams(obj,key,bin);
+            objA_params = cell2mat(params(ismember(param_trials,cellfun(@(x) x(1),A_trials)))');
+            objB_params = cell2mat(params(ismember(param_trials,cellfun(@(x) x(1),B_trials)))');
+            Params = permute(objA_params(1:mS,:),[2 3 1]);
+            Params(:,2,:) = permute(objB_params(1:mS,:),[2 3 1]);
+            
+        end
+        
+        function [params, param_trials] = getParams(obj,key,bin)
+            
+            speed = @(x,y,timestep) sqrt(x.^2+y.^2)./timestep;
+            binsize= fetch1(mov3d.DecodeOpt & key, 'binsize');
+            if nargin>2;binsize = bin;end
+            
+            % stimulus_trial_xy_position
+            [paramsObj,obj,fps] = fetchn(vis.Movie & (vis.MovieClipCond & key),...
+                'params','movie_name','frame_rate');
+            
+            int_params = [];
+            for iobj = 1:length(obj)
+                timestep = mean(diff(paramsObj{iobj}.frames))/fps(iobj);
+                par = struct2array(paramsObj{iobj});
+                
+                par = par(:,[14 16:end]);
+                par(:,end+1) = [0;speed(diff(par(:,1)),diff(par(:,2)),timestep)];
+                frameStep = fps(iobj)*binsize/1000; % in frames
+                frameIdx = 1:frameStep:paramsObj{iobj}.frames(end);
+                int_params{iobj} = nan(length(frameIdx),size(par,2));
+                for iparam = 1:size(par,2)
+                    int_params{iobj}(:,iparam) = interpn(paramsObj{iobj}.frames,par(:,iparam),frameIdx,'cubic');
+                end
+            end
+            
+            % get trials
+            trials = pro(preprocess.Sync*vis.Trial & (experiment.Scan & key) & 'trial_idx between first_trial and last_trial', 'cond_idx', 'flip_times');
+            trials = fetch(trials*vis.MovieClipCond, '*', 'ORDER BY trial_idx'); %fetch(trials*psy.Movie, '*', 'ORDER BY trial_idx') 2016-08
+            
+            % find bins within the pop RF
+            params = []; param_trials = [];
+            
+            for itrial = 1:length(trials)
+                param_trials(itrial) = trials(itrial).trial_idx;
+                obj_idx = strcmp(obj,trials(itrial).movie_name);
+                frames_per_trial = trials(itrial).cut_after*fps(obj_idx);
+                start = (trials(itrial).clip_number - 1)*frames_per_trial;
+                params{itrial} = int_params{obj_idx}(find(frameIdx>start,1,'first') : ...
+                    find(frameIdx<(start+frames_per_trial),1,'last'),:);
+            end
         end
         
         function plotMasks(obj,key)
@@ -231,7 +297,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             hold on
             for idx = 1:length(keys)
                 tuple = keys(idx);
-                 mi = fetch1(mov3d.Decode & tuple,'mi');
+                mi = fetch1(mov3d.Decode & tuple,'mi');
                 [name,name2] = fetch1(experiment.Scan & tuple,'brain_area','scan_notes');
                 if strcmp(name,'other');name = name2;end
                 if size(mi,2)>1

@@ -1,9 +1,9 @@
 %{
 mov3d.RFFilter (computed) # population RF
 -> preprocess.Sync
--> mov3d.DecodeOpt
 -> preprocess.SpikeMethod
 -> preprocess.Method
+binsize                : float           # bin size 
 ---
 map                    : longblob        # standard deviation from center of population RF
 rf_idx                 : longblob        # index of subbins with stimulus in pop RF (trials)(subbins)
@@ -17,7 +17,7 @@ classdef RFFilter < dj.Relvar & dj.AutoPopulate
          popRel  = (experiment.Scan  ...
             * (pro(preprocess.Spikes,'spike_method->spike_inference','extract_method->segment_method') ...
             & 'spike_inference = 3'  & 'segment_method=2'))...
-            * (mov3d.DecodeOpt & 'process = "yes"' & 'restrict_rf>0') ...
+            * (pro(mov3d.DecodeOpt & 'process = "yes"' & 'restrict_rf>0','binsize->bin')) ...
             * (preprocess.Sync & (vis.MovieClipCond & (vis.Movie & 'movie_class="object3d"'))) ...
             & tuning.MonetFit 
     end
@@ -26,19 +26,24 @@ classdef RFFilter < dj.Relvar & dj.AutoPopulate
         
         function makeTuples(self, key)
             
-            tuple = key;
+            tuple = rmfield(key,'dec_opt');
             
             % params
             [binsize, rf_thr] = fetch1(mov3d.DecodeOpt & key,'binsize','restrict_rf');
+            tuple.binsize = binsize;
+            
+            if exists(self & tuple); return;end
             
             % get V1 RFs
             sesskey = rmfield(key,'scan_idx');
             V1key = fetch(experiment.Scan & 'brain_area= "V1"' & sesskey);
-            if isempty(V1key);
+            if isempty(V1key)
                 sesskey.session = sesskey.session-1;
                 V1key = fetch(experiment.Scan & 'brain_area= "V1"' & sesskey);
             end
             [xloc, yloc] = fetchn(tuning.MonetFit & V1key(1),'x','y');
+            
+            if isempty(xloc); warning('No RFs found!');return;end
             
             % convert to pixel space
             sess = fetch(preprocess.Sync*vis.Session & key,'resolution_x','resolution_y','monitor_distance','monitor_size');
