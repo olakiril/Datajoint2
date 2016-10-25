@@ -17,7 +17,7 @@ if strcmp(fetch1(Scans(key),'scan_prog'),'Imager')
     
     % DF/F
     data(:,1,:) = data(:,2,:);
-    %% process data
+    % process data
 
 
 

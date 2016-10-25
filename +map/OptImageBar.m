@@ -40,6 +40,7 @@ classdef OptImageBar < dj.Relvar & dj.AutoPopulate
                 vessels = squeeze(mean(getOpticalData(filename)));
             end
             
+            disp 'synchronizing...'
             % synchronize to stimulus
             tuple =  sync(key, photodiode_signal, photodiode_fs, fps);
             
@@ -139,11 +140,11 @@ classdef OptImageBar < dj.Relvar & dj.AutoPopulate
                 
                 imA(imA>prctile(imA(:),99)) = prctile(imA(:),99);
                 
-                imP(imP<-3.14) = imP(imP<-3.14) +3.14*2;
-                imP(imP>3.14) = imP(imP>3.14) -3.14*2;
-                imP(imP<0) = -exp((imP(imP<0)+ params.range)*params.exp);
-                imP(imP>0) = exp((abs(imP(imP>0)- params.range))*params.exp);
-                
+%                 imP(imP<-3.14) = imP(imP<-3.14) +3.14*2;
+%                 imP(imP>3.14) = imP(imP>3.14) -3.14*2;
+%                 imP(imP<0) = -exp((imP(imP<0)+ params.range)*params.exp);
+%                 imP(imP>0) = exp((abs(imP(imP>0)- params.range))*params.exp);
+%                 
                 h = normalize(imP);
                 s = ones(size(imP));
                 v = normalize(imA);

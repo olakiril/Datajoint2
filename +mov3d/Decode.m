@@ -26,9 +26,9 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             
             tuple = key;
             
-            [sel_method,dec_method,trial_bins,trial_method] = ...
+            [sel_method,dec_method,trial_bins,trial_method,chance] = ...
                 fetch1(mov3d.DecodeOpt & key,...
-                'select_method','decode_method','trial_bins','trial_method');
+                'select_method','decode_method','trial_bins','trial_method','chance');
             
             [Data, xloc, yloc, zloc] = getData(self,key); % [Cells, Obj, Trials]
             
@@ -39,6 +39,19 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
                 case 'sequential'
                     trial_idx = 1:size(Data,3);
             end
+            
+            % randomize object identity for chance
+            if chance
+                sz = size(Data);
+                Data = Data(:,:);
+                idx = 1:size(Data,2);
+                for i = 1:3000
+                    idx = idx(randperm(size(Data,2)));
+                end
+                Data = reshape(Data(:,idx),sz);
+            end
+            
+            
             trial_bin = floor(size(Data,3)/trial_bins);
             if strcmp(sel_method,'all');mi = nan(trial_bins,1);else mi = nan(trial_bins,size(Data,1));end
             
@@ -73,12 +86,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             tuple.mi = cell2mat(mi); % [trials cells]
             
             % correct for key mismach
-            tuple = rmfield(tuple,'spike_method');
-            tuple = rmfield(tuple,'extract_method');
-            tuple.spike_inference = key.spike_method;
-            tuple.segment_method = key.extract_method;
             self.insert(tuple)
-            
         end
     end
     
@@ -199,7 +207,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             end
         end
         
-        function plotMasks(obj,key)
+        function plotMasks(obj)
             figure
             colors = parula(50);
             plotMask(map.Masks)
@@ -210,7 +218,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             areas =  fetchn(map.Area,'area');
             for iarea = 1:length(areas)
                 
-                keys = fetch(obj & key & (experiments.Scan & ['cortical_area="' areas{iarea} '"']));
+                keys = fetch(obj & (experiment.Scan & ['brain_area="' areas{iarea} '"']));
                 if isempty(keys);continue;end
                 for ikey = 1:length(keys)
                     tuple = keys(ikey);
@@ -227,15 +235,14 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
         end
         
         function plotMasksNorm(obj)
-            key.dec_opt = 1;
-            sessions = fetch(experiments.Session & obj);
+            sessions = fetch(experiment.Session & obj);
             areas =  fetchn(map.Area,'area');
             
             MI = nan(length(areas),length(sessions));
             
             for isession = 1:length(sessions)
                 for iarea = 1:length(areas)
-                    keys = fetch(obj & key & sessions(isession) & (rf.Scan & ['cortical_area="' areas{iarea} '"']));
+                    keys = fetch(obj & sessions(isession) & (experiment.Scan & ['brain_area="' areas{iarea} '"']));
                     if isempty(keys);continue;end
                     mi = [];
                     for ikey = 1:length(keys)

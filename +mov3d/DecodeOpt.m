@@ -10,6 +10,7 @@ trial_bins=1                : mediumint                           # trial groupi
 trial_method="random"       : enum('random','sequential')         # trial selection method
 process="yes"               : enum('no','yes')                    # do it or not
 restrict_rf="no"            : enym('no','yes')                    # restrict anaysis to population RF
+chance=0                    : tinyint                             # chance performance
 %}
 
 
