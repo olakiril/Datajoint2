@@ -46,11 +46,11 @@ classdef OptImageBar < dj.Relvar & dj.AutoPopulate
             
             % calculate frame times
             frame_times = tuple.signal_start_time + tuple.signal_duration*(1:size(Data,1))/size(Data,1);
-
+            
             % import Sync table
             tuple.frame_times = frame_times;
             makeTuples(map.Sync,tuple)
-                
+            
             % DF/F
             Data(:,end,:) = Data(:,end-1,:);
             mData = mean(Data);
@@ -59,16 +59,16 @@ classdef OptImageBar < dj.Relvar & dj.AutoPopulate
             disp 'trial separation...'
             
             % loop through axis
-            [axis,cond_idices] = fetchn(vis.FancyBar & tuple,'axis','cond_idx');
+            [axis,cond_idices] = fetchn(vis.FancyBar * vis.ScanConditions & tuple,'axis','cond_idx');
             uaxis = unique(axis);
             for iaxis = 1:length(uaxis)
                 
                 key.axis = axis{iaxis};
                 icond = [];
-                icond.cond_idx = cond_idices(strcmp(axis,axis{iaxis})); 
+                icond.cond_idx = cond_idices(strcmp(axis,axis{iaxis}));
                 
                 % Get stim data
-                times  = fetchn(vis.Trial & tuple & icond,'flip_times');
+                times  = fetchn(vis.Trial * vis.ScanConditions & tuple & icond,'flip_times');
                 
                 % find trace segments
                 dataCell = cell(1,length(times));
@@ -122,13 +122,14 @@ classdef OptImageBar < dj.Relvar & dj.AutoPopulate
             %
             % Plots the intrinsic imaging data aquired with Intrinsic Imager
             %
-            % MF 2012-09
+            % MF 2012, MF 2016
             
             params.sigma = 2; %sigma of the gaussian filter
-            params.exp = 1; % exponent factor of rescaling
+            params.exp = []; % exponent factor of rescaling
             params.reverse = 0; % reverse the axis
-            params.range = 3.14/2; %angle limit
             params.subplot = [1 2];
+            params.amp = 0;
+            params.shift = 0;
             
             params = getParams(params,varargin);
             
@@ -138,16 +139,33 @@ classdef OptImageBar < dj.Relvar & dj.AutoPopulate
                 
                 [imP, vessels, imA] = fetch1(obj & keys(ikey),'ang','vessels','amp');
                 
-                imA(imA>prctile(imA(:),99)) = prctile(imA(:),99);
+                imP(imP<-3.14) = imP(imP<-3.14) +3.14*2;
+                imP(imP>3.14) = imP(imP>3.14) -3.14*2;
+                uv =linspace(-3.14,3.14,20) ;
+                n = histc(imP(:),uv);
+                [~,i] = min(n(1:end-1)) ;
+                minmode = uv(i);
+                imP = imP+minmode+3.14;
+                imP(imP<-3.14) = imP(imP<-3.14) +3.14*2;
+                imP(imP>3.14) = imP(imP>3.14) -3.14*2;
                 
-%                 imP(imP<-3.14) = imP(imP<-3.14) +3.14*2;
-%                 imP(imP>3.14) = imP(imP>3.14) -3.14*2;
-%                 imP(imP<0) = -exp((imP(imP<0)+ params.range)*params.exp);
-%                 imP(imP>0) = exp((abs(imP(imP>0)- params.range))*params.exp);
-%                 
+                if ~isempty(params.exp)
+                    imP = imP-median(imP(:));
+                    imP(imP<-3.14) = imP(imP<-3.14) +3.14*2;
+                    imP(imP>3.14) = imP(imP>3.14) -3.14*2;
+                    imP = imP+params.shift;
+                    imP(imP<0) = normalize(exp((normalize((imP(imP<0)))+1).^params.exp))-1;
+                    imP(imP>0) =  normalize(-exp((normalize((-imP(imP>0)))+1).^params.exp));
+                end
+                
+                imA(imA>prctile(imA(:),99)) = prctile(imA(:),99);
                 h = normalize(imP);
                 s = ones(size(imP));
-                v = normalize(imA);
+                if params.amp
+                    v = normalize(imA);
+                else
+                    v = ones(size(imA));
+                end
                 s2 = normalize(imA);
                 v2 = normalize(vessels);
                 
@@ -158,7 +176,7 @@ classdef OptImageBar < dj.Relvar & dj.AutoPopulate
                 else
                     figure
                     set(gcf,'position',[50 200 920 435])
-                    set(gcf,'name',['OptMap ' keys(ikey).session ' ' num2str(keys(ikey).scan_idx)])
+                    set(gcf,'name',['OptMap: ' num2str(keys(ikey).animal_id) '_' num2str(keys(ikey).session) '_' num2str(keys(ikey).scan_idx)])
                     
                     if any(params.subplot==1) && any(params.subplot==2)
                         subplot(121)
@@ -177,8 +195,10 @@ classdef OptImageBar < dj.Relvar & dj.AutoPopulate
                     end
                     
                     if any(params.subplot==2)
+                        s2 = imgaussian(s2,params.sigma);
+                        h = imgaussian(h,params.sigma);
                         im = (hsv2rgb(cat(3,h,cat(3,s2,v2))));
-                        im = imgaussian(im,params.sigma);
+                        
                         imshow(im)
                     end
                     if params.reverse

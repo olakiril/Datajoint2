@@ -40,7 +40,7 @@ classdef Masks < dj.Relvar & dj.AutoPopulate
             self.restrict(varargin{:})
         end
         
-        function plotMask(obj,color)
+        function plotMask(obj,color,n)
             [masks,areas]= fetchn(obj,'mask','area');
             
             %             figure
@@ -58,7 +58,15 @@ classdef Masks < dj.Relvar & dj.AutoPopulate
                 else
                     plot(A{1}(:,2),A{1}(:,1),'k');
                 end
-                text(stats.Centroid(1),stats.Centroid(2),areas{imask},'horizontalalignment','center')
+                if nargin<3
+                      text(stats.Centroid(1),stats.Centroid(2),...
+                    sprintf('%s',areas{imask}),...
+                    'horizontalalignment','center')
+                else
+                text(stats.Centroid(1),stats.Centroid(2),...
+                    sprintf('%s\n(%d)',areas{imask},n),...
+                    'horizontalalignment','center')
+                end
             end
             
         end

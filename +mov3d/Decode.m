@@ -14,7 +14,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
     
     properties
         popRel  = (experiment.Scan  ...
-            * (preprocess.Spikes & 'spike_method = 3'  & 'extract_method=2'))...
+            * (preprocess.Spikes & 'spike_method = 2'  & 'extract_method=2'))...
             * (mov3d.DecodeOpt & 'process = "yes"') ...
             * (preprocess.Sync & (vis.MovieClipCond & (vis.Movie & 'movie_class="object3d"')))
         
@@ -156,12 +156,14 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             Trials(:,2,:) = reshape(permute(objB_trials(:,:,1:mS),[2 4 3 1]),size(objB_trials,2),1,[]);
             Trials = squeeze(Trials(1,:,:));
             
-            % get params
-            [params, param_trials] = getParams(obj,key,bin);
-            objA_params = cell2mat(params(ismember(param_trials,cellfun(@(x) x(1),A_trials)))');
-            objB_params = cell2mat(params(ismember(param_trials,cellfun(@(x) x(1),B_trials)))');
-            Params = permute(objA_params(1:mS,:),[2 3 1]);
-            Params(:,2,:) = permute(objB_params(1:mS,:),[2 3 1]);
+            if nargout>5
+                % get params
+                [params, param_trials] = getParams(obj,key,bin);
+                objA_params = cell2mat(params(ismember(param_trials,cellfun(@(x) x(1),A_trials)))');
+                objB_params = cell2mat(params(ismember(param_trials,cellfun(@(x) x(1),B_trials)))');
+                Params = permute(objA_params(1:mS,:),[2 3 1]);
+                Params(:,2,:) = permute(objB_params(1:mS,:),[2 3 1]);
+            end
             
         end
         
@@ -209,10 +211,12 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
         
         function plotMasks(obj)
             figure
-            colors = parula(50);
+            colors = parula(30);
             plotMask(map.Masks)
             colormap parula
-            colorbar
+            c = colorbar;
+            
+            method = fetch1(mov3d.DecodeOpt & obj,'decode_method');
             
             
             areas =  fetchn(map.Area,'area');
@@ -227,9 +231,13 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
                     
                 end
                 mi = mean(mi);
-                %                  idx = ceil(mi*50);
-                idx = ceil(mi*100)-50;
-                plotMask(map.Masks & ['area="' areas{iarea} '"'],colors(idx,:))
+                 if strcmp(method,'nnclassRawSV')
+                                  idx = ceil(mi*50);
+                 else
+                
+                    idx = ceil(mi*100+0.1)-50;
+                 end
+                plotMask(map.Masks & ['area="' areas{iarea} '"'],colors(idx,:),length(keys))
             end
             
         end
