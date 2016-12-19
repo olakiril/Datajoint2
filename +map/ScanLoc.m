@@ -4,7 +4,8 @@ map.ScanLoc(imported) #
 ---
 x                         : double                        # x coordinate in pixels
 y                         : double                        # y coordinate in pixels
-vessels=null              : mediumblob                    # vessel map
+vessels=null              : mediumblob                    # vessel map of the imaging window
+vessel_map=null              : mediumblob                 # vessel map with 2P centered at the imaging location
 %}
 
 classdef ScanLoc < dj.Relvar & dj.AutoPopulate
@@ -54,7 +55,22 @@ classdef ScanLoc < dj.Relvar & dj.AutoPopulate
             text(x,y,num2str(mxidx+1),'horizontalalignment','center',...
                 'verticalalignment','middle')
             
+            disp 'getting the scan vessel map...'
+            k = [];
+            k.session = key.session;
+            k.animal_id = key.animal_id;
+            k.site_number = fetch1(experiment.Scan & key,'site_number');
+            ves_key = fetch(experiment.Scan & k & 'aim = "vessels"');
+            if ~isempty(ves_key)
+                reader = preprocess.getGalvoReader(ves_key);
+                vessel_map = reader(:,:,:,:,:);
+                vessel_map = mean(vessel_map(:,:,:),3);
+            else
+                vessel_map = [];
+            end
+            
             % insert
+            key.vessel_map = vessel_map;
             key.vessels = vessels;
             key.x = x;
             key.y = y;

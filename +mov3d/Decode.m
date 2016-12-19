@@ -14,7 +14,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
     
     properties
         popRel  = (experiment.Scan  ...
-            * (preprocess.Spikes & 'spike_method = 2'  & 'extract_method=2'))...
+            * (preprocess.Spikes & 'spike_method = 5'  & 'extract_method=2'))...
             * (mov3d.DecodeOpt & 'process = "yes"') ...
             * (preprocess.Sync & (vis.MovieClipCond & (vis.Movie & 'movie_class="object3d"')))
         
@@ -126,6 +126,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
                 d = max(1,round(bin/1000*fps));
                 trace = convn(X(t),ones(d,1)/d,'same');
                 trace = trace(1:d:end,:);
+                if any(isnan(trace(:))) || any(~isreal(trace(:)));continue;end
                 if index; trace = trace(rf_idx{trial.trial_idx==rf_trials},:);end
                 snippet{stim,idx} = trace;
                 trial_idx{stim,idx} = repmat(trial.trial_idx,size(trace,1),1);
@@ -215,29 +216,33 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             plotMask(map.Masks)
             colormap parula
             c = colorbar;
-            
+            ylabel(c,'Performance','Rotation',-90,'VerticalAlignment','baseline')
             method = fetch1(mov3d.DecodeOpt & obj,'decode_method');
-            
-            
             areas =  fetchn(map.Area,'area');
+            MI = cell(size(areas));
             for iarea = 1:length(areas)
-                
                 keys = fetch(obj & (experiment.Scan & ['brain_area="' areas{iarea} '"']));
-                if isempty(keys);continue;end
+                if isempty(keys);continue;end 
                 for ikey = 1:length(keys)
                     tuple = keys(ikey);
-                    
-                    mi(ikey) = mean(fetch1(obj & tuple,'mi'));
-                    
+                    MI{iarea}(ikey) = mean(fetch1(obj & tuple,'mi'));
                 end
-                mi = mean(mi);
+            end
+            
+            mxMI = max(cellfun(@mean,MI));
+            for iarea = 1:length(areas)
+                mi = mean(MI{iarea});
                  if strcmp(method,'nnclassRawSV')
-                                  idx = ceil(mi*50);
+                    idx = ceil(size(colors,1)*0.99/mxMI*mi);
                  else
-                
                     idx = ceil(mi*100+0.1)-50;
                  end
-                plotMask(map.Masks & ['area="' areas{iarea} '"'],colors(idx,:),length(keys))
+                plotMask(map.Masks & ['area="' areas{iarea} '"'],colors(idx,:),length(MI{iarea}))
+            end
+             if strcmp(method,'nnclassSV') || strcmp(method,'nnclass')
+                set(c,'ytick',linspace(0,1,11),'yticklabel',linspace(0.5,1,11))
+            else
+                set(c,'ytick',linspace(0,1,11),'yticklabel',roundall(linspace(0,mxMI,11),0.01))
             end
             
         end
@@ -273,12 +278,13 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
                 if isnan(nmi(iarea));continue;end
                 idx = ceil(((nmi(iarea) - mn_nmi) /(mx_nmi  - mn_nmi))*100);
                 if idx ==0;idx =1;end
-                plotMask(map.Masks & ['area="' areas{iarea} '"'],colors(idx,:))
+                plotMask(map.Masks & ['area="' areas{iarea} '"'],colors(idx,:),sum(~isnan(MI(iarea,:))))
             end
             set(gcf,'name','Normalized performance')
-            c.Ticks = 0:0.2:1;
-            c.TickLabels = roundall(mn_nmi: (mx_nmi - mn_nmi)/5 :mx_nmi,0.1);
-            ylabel(c, 'Normalized performance to V1')
+            labels = mn_nmi: (mx_nmi - mn_nmi)/5 :mx_nmi;
+            c.Ticks = linspace(0,1,length(labels));
+            c.TickLabels = roundall(labels,0.01);
+            ylabel(c, 'Normalized performance to V1','Rotation',-90,'VerticalAlignment','baseline')
             
         end
         
