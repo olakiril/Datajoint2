@@ -14,10 +14,11 @@ classdef Repeats < dj.Relvar & dj.AutoPopulate
     
     properties
         popRel  = (experiment.Scan  ...
-            * (preprocess.Spikes & 'spike_method = 2'  & 'extract_method=2'))...
+            * (preprocess.Spikes))...
             * (mov3d.RepeatsOpt & 'process = "yes"') ...
-            * (preprocess.Sync & (vis.MovieClipCond & (vis.Movie & 'movie_class="object3d"')))
-        
+            * (preprocess.Sync  & (vis.MovieClipCond * vis.Trial & ...
+            (vis.Movie & 'movie_class="object3d" OR movie_class = "multiobjects"') & ...
+            'trial_idx between first_trial and last_trial'))
     end
     
     methods(Access=protected)
@@ -44,7 +45,6 @@ classdef Repeats < dj.Relvar & dj.AutoPopulate
                         end
                         r(iobj) = nanmean(cor);
                     end
-                    
                     r = nanmean(r);
             end
             % insert
@@ -55,50 +55,45 @@ classdef Repeats < dj.Relvar & dj.AutoPopulate
     end
     
     methods
-        function Data = getData(obj,key,ibin)
+        function Data = getData(obj,key,ibin) % {uni_stims}(cells,time,repeats)
             
-            [bin, rf_idx] = fetch1(mov3d.RepeatsOpt & key, 'binsize','restrict_rf');
+            [bin] = fetch1(mov3d.RepeatsOpt & key, 'binsize');
             if nargin>2;bin = ibin;end
             
-            if rf_idx > 0
-                index = true;
-                [rf_idx, rf_trials] = fetch1(mov3d.RFFilter & key,'rf_idx','rf_trials');
-            else
-                index = false;
-            end
-            
+            % get stuff
             [Traces, caTimes] = pipetools.getAdjustedSpikes(key);
+            trials = pro(preprocess.Sync*vis.Trial & (experiment.Scan & key) & 'trial_idx between first_trial and last_trial', 'cond_idx', 'flip_times');
+            [flip_times, trial_idxs, mov, clip] = (fetchn(trials * vis.MovieClipCond,'flip_times','trial_idx','movie_name','clip_number'));
+            
+            % filter out incomplete trials
+            ft_sz = cellfun(@(x) size(x,2),flip_times);
+            tidx = ft_sz>=prctile(ft_sz,99);
+  
+            % find repeated trials
+            unimov=unique(mov);
+            stim_index = repmat((1:length(unimov))',1,size(mov,1));
+            stim_index = stim_index(strcmp(repmat(unimov,1,size(mov,1)),repmat(mov',length(unimov),1)));
+            stimuli = [stim_index clip];
+            [~,~,uni_idx] = unique(stimuli,'rows');
+            ridx = arrayfun(@(x) sum(x==uni_idx),uni_idx)>1;
+            unis = unique(stimuli(ridx,:),'rows');
+            
+            % Subsample traces
+            flip_times = cell2mat(flip_times(tidx & ridx));
             xm = min([length(caTimes) length(Traces)]);
             X = @(t) interp1(caTimes(1:xm)-caTimes(1), Traces(1:xm,:), t, 'linear', nan);  % traces indexed by time
+            fps = 1/median(diff(flip_times(1,:)));
+            d = max(1,round(bin/1000*fps));
+            traces = convn(permute(X(flip_times - caTimes(1)),[2 3 1]),ones(d,1)/d,'same');
+            traces = traces(1:d:end,:,:);
             
-            trials = pro(preprocess.Sync*vis.Trial & (experiment.Scan & key) & 'trial_idx between first_trial and last_trial', 'cond_idx', 'flip_times');
-            [mov,clip] = fetchn(trials*vis.MovieClipCond,'movie_name','clip_number');
-            movi = strcmp(mov,'obj2v3')+1;
-            [~,~,y] = unique([movi clip],'rows');
-            idx = arrayfun(@(x) sum(x==y),y)>1;
-            trials = fetch(trials*vis.MovieClipCond, '*', 'ORDER BY trial_idx'); %fetch(trials*psy.Movie, '*', 'ORDER BY trial_idx') 2016-08
-            trials = trials(idx);
-            unis = unique(y(idx));
-            
-            snippet = []; % traces: {stimulus}(subbin,cells)
-            for itrial = 1:length(trials)
-                trial = trials(itrial);
-                
-                % extract relevant trace & bin
-                fps = 1/median(diff(trial.flip_times));
-                t = trial.flip_times - caTimes(1);
-                d = max(1,round(bin/1000*fps));
-                trace = convn(X(t),ones(d,1)/d,'same');
-                trace = trace(1:d:end,:);
-                if index; trace = trace(rf_idx{trial.trial_idx==rf_trials},:);end
-                snippet{itrial} = trace;
-            end
-            
-            Data = [];
-            for iuni = 1:length(unis)
-                dat = snippet(unis(iuni)==y(idx));
-                dat = dat(~cellfun(@isempty,dat));
-                Data{iuni} = permute(cell2mat(cellfun(@(x) permute(x,[1 3 2]),dat,'uni',0)),[3 1 2]);
+            % split for unique stimuli
+            Data = [];k=[];
+            for istim = 1:length(unis)
+                k.movie_name = unimov{unis(istim,1)};
+                k.clip_number = unis(istim,2);
+                stim_trials = fetchn(trials*vis.MovieClipCond & k,'trial_idx');
+                Data{istim} = permute(traces(:,:,ismember(trial_idxs(tidx & ridx),stim_trials)),[2 1 3]);
             end
         end
     end

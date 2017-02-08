@@ -12,7 +12,7 @@ deg2dot = s.params.constants.dotNumX/theta;
 tuple.gauss_fit = fitGauss(field,'deg2dot',deg2dot);
 
 % compute snr
-tuple.snr = computeRFsnr(tuple.gauss_fit,field);
+tuple.snr = computeRFsnr(tuple.gauss_fit, field);
 
 % correct for nan values
 tuple.snr(isnan(tuple.snr) | isinf(tuple.snr)) = 0;

@@ -41,7 +41,7 @@ classdef Masks < dj.Relvar & dj.AutoPopulate
         end
         
         function plotMask(obj,color,n)
-            [masks,areas]= fetchn(obj,'mask','area');
+            [masks,areas]= fetchn(obj & 'area!="MAP"','mask','area');
             
             %             figure
             set(gcf,'name','Visual Areas')

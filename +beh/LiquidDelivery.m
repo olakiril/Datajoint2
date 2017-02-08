@@ -33,8 +33,10 @@ classdef LiquidDelivery < dj.Relvar
                 end
                 subplot(ceil(sqrt(length(mice))),floor(sqrt(length(mice))),imouse)
                 plot(water);
-                set(gca,'xtick',1:length(days),'xticklabel',datestr(days),...
-                    'XTickLabelRotation',90,'box','off')
+%                 set(gca,'xtick',1:length(days),'xticklabel',datestr(days),...
+%                     'XTickLabelRotation',90,'box','off')
+                   set(gca,'xtick',1:length(days),'xticklabel',datestr(days),...
+                    'box','off')
                 hold on
                 plot([0 length(days)+1],[1 1],'r-.')
                 xlim([0 length(days)])
