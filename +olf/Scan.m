@@ -88,7 +88,7 @@ classdef Scan < dj.Relvar & dj.AutoPopulate
                 
                 % get Data
                 data_ch1 = permute(squeeze(reader(:,:,1,:,:)),[1 2 4 3]);
-                data_phd = reader(:,:,3,:,:);
+                data_phd = reader(:,:,end,:,:);
                 
             end
             
@@ -225,7 +225,7 @@ classdef Scan < dj.Relvar & dj.AutoPopulate
         function trials = findTrials(obj,data_phd,fps,dur,nslices)
             
             phd = reshape(mean(data_phd,2),[],1);
-            phd = mean(phd)-phd > 0;
+            phd = (mean(phd)+min(phd))/2-phd > 0;
             
             flipdur = nslices*dur*fps*size(data_phd,1)/33/1000; % in line time
             all_times = find(diff(phd));

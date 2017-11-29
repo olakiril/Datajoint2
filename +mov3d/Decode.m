@@ -16,8 +16,9 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
         popRel  = (experiment.Scan  ...
             * (preprocess.Spikes & 'spike_method = 5'  & 'extract_method=2'))...
             * (mov3d.DecodeOpt & 'process = "yes"') ...
-            * (preprocess.Sync & (vis.MovieClipCond & (vis.Movie & 'movie_class="object3d"')))
-        
+            * (preprocess.Sync  & (vis.MovieClipCond * vis.Trial & ...
+            (vis.Movie & 'movie_class="object3d"') & ...
+            'trial_idx between first_trial and last_trial'))
     end
     
     methods(Access=protected)
@@ -93,11 +94,13 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
     methods
         function [Data, xloc, yloc, zloc, Trials, Params] = getData(obj,key,ibin)
             
-            [bin, rf_idx] = fetch1(mov3d.DecodeOpt & key, 'binsize','restrict_rf');
+            [bin, rf_opt] = fetch1(mov3d.DecodeOpt & key, 'binsize','rf_opt');
             if nargin>2;bin = ibin;end
             
-            if rf_idx > 0
+            if rf_opt > 0
                 index = true;
+                rf_key = key;
+                rf_key.rf_opt = rf_opt;
                 [rf_idx, rf_trials] = fetch1(mov3d.RFFilter & key,'rf_idx','rf_trials');
             else
                 index = false;
@@ -140,7 +143,7 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             Bidx = ~cellfun(@isempty,B);
             B = B(Bidx);
             objB = permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),B,'uni',0)'),size(B{1},2),[]),[3 1 2]);
-         
+            
             % Arrange data
             mS = min([size(objA,3) size(objB,3)]);
             Data = reshape(permute(objA(:,:,1:mS),[2 4 3 1]),size(objA,2),1,[]);
@@ -166,6 +169,47 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
                 Params(:,2,:) = permute(objB_params(1:mS,:),[2 3 1]);
             end
             
+        end
+        
+        function [Data, Stims, info] = getDataNew(obj,key,bin)
+            
+            if nargin<3
+                bin = fetch1(mov3d.DecodeMultiOpt & key, 'binsize');
+            end
+            
+            % get traces
+            [Traces, caTimes] = pipetools.getAdjustedSpikes(key);
+            xm = min([length(caTimes) length(Traces)]);
+            X = @(t) interp1(caTimes(1:xm)-caTimes(1), Traces(1:xm,:), t, 'linear', nan);  % traces indexed by time
+            
+            % fetch stuff
+            trials = pro(preprocess.Sync*vis.Trial & (experiment.Scan & key) & 'trial_idx between first_trial and last_trial', 'cond_idx', 'flip_times');
+            Stims = unique(fetchn(vis.MovieClipCond & trials,'movie_name'));
+            [flip_times, trial_idxs] = (fetchn(trials * vis.MovieClipCond,'flip_times','trial_idx'));
+            ft_sz = cellfun(@(x) size(x,2),flip_times);
+            tidx = ft_sz>=prctile(ft_sz,99);
+            trial_idxs = trial_idxs(tidx);
+            flip_times = cell2mat(flip_times(tidx));
+            
+            % subsample traces
+            fps = 1/median(diff(flip_times(1,:)));
+            d = max(1,round(bin/1000*fps));
+            traces = convn(permute(X(flip_times - caTimes(1)),[2 3 1]),ones(d,1)/d,'same');
+            traces = traces(1:d:end,:,:);
+            
+            % split for unique stimuli
+            for istim = 1:length(Stims)
+                [s_trials,s_clips,s_names] = fetchn(trials*vis.MovieClipCond &...
+                    sprintf('movie_name = "%s"',Stims{istim}),'trial_idx','clip_number','movie_name');
+                [tr_idx, b]= ismember(trial_idxs,s_trials);
+                st_idx = b(b>0);
+                dat = permute(traces(:,:,tr_idx),[2 3 1]);
+                info.bins{istim} = reshape(repmat(1:size(dat,3),size(dat,2),1),1,[]);
+                info.trials{istim} = reshape(repmat(s_trials(st_idx),1,size(dat,3)),1,[]);
+                info.clips{istim} = reshape(repmat(s_clips(st_idx),1,size(dat,3)),1,[]);
+                info.names{istim} = reshape(repmat(s_names(st_idx),1,size(dat,3)),1,[]);
+                Data{istim} = reshape(dat,size(traces,2),[]);
+            end
         end
         
         function [params, param_trials] = getParams(obj,key,bin)
@@ -210,51 +254,69 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             end
         end
         
-        function plotMasks(obj)
-            figure
-            colors = parula(30);
-            plotMask(map.Masks)
-            colormap parula
-            c = colorbar;
-            ylabel(c,'Performance','Rotation',-90,'VerticalAlignment','baseline')
+        function f = plotMasks(obj,norm)
+            
+            % get data
             method = fetch1(mov3d.DecodeOpt & obj,'decode_method');
             areas =  fetchn(map.Area,'area');
+            areas = areas(~strcmp(areas,'MAP'));
             MI = cell(size(areas));
             for iarea = 1:length(areas)
                 keys = fetch(obj & (experiment.Scan & ['brain_area="' areas{iarea} '"']));
-                if isempty(keys);continue;end 
+                if isempty(keys);continue;end
                 for ikey = 1:length(keys)
                     tuple = keys(ikey);
                     MI{iarea}(ikey) = mean(fetch1(obj & tuple,'mi'));
                 end
             end
             
-            mxMI = max(cellfun(@mean,MI));
-            for iarea = 1:length(areas)
-                mi = mean(MI{iarea});
-                 if strcmp(method,'nnclassRawSV')
-                    idx = ceil(size(colors,1)*0.99/mxMI*mi);
-                 else
-                    idx = ceil(mi*100+0.1)-50;
-                 end
-                plotMask(map.Masks & ['area="' areas{iarea} '"'],colors(idx,:),length(MI{iarea}))
+            % plot
+            f = figure;
+            colors = parula(30);
+            plotMask(map.Masks)
+            colormap parula
+            c = colorbar;
+            if strcmp(method,'nnclassRawSV') || strcmp(method,'nnclassRaw')
+                name = 'Mutual information (bits)';
+            else
+                name = 'Classification performance (%)';
             end
-             if strcmp(method,'nnclassSV') || strcmp(method,'nnclass')
-                set(c,'ytick',linspace(0,1,11),'yticklabel',linspace(0.5,1,11))
+            ylabel(c,name,'Rotation',-90,'VerticalAlignment','baseline')
+            
+            mxMI = max(cellfun(@nanmean,MI));
+            if nargin>1
+                mx = mxMI;
+            else
+                mx =1;
+            end
+            for iarea = 1:length(areas)
+                try
+                    mi = nanmean(MI{iarea});
+                    if strcmp(method,'nnclassRawSV')
+                        idx = ceil(size(colors,1)*0.99/mxMI*mi);
+                    else
+                        idx = double(uint8(floor(((mi-0.5)/(mx - 0.5))*0.99*size(colors,1)))+1);
+                    end
+                    plotMask(map.Masks & ['area="' areas{iarea} '"'],colors(idx,:),length(MI{iarea}))
+                end
+            end
+            if strcmp(method,'nnclassSV') || strcmp(method,'nnclass')
+                set(c,'ytick',linspace(0,1,5),'yticklabel',roundall(linspace(0.5,mx,5),0.01))
             else
                 set(c,'ytick',linspace(0,1,11),'yticklabel',roundall(linspace(0,mxMI,11),0.01))
             end
             
         end
         
-        function plotMasksNorm(obj)
+        function f = plotMasksNorm(obj)
             sessions = fetch(experiment.Session & obj);
             areas =  fetchn(map.Area,'area');
-            
+            areas = areas(~strcmp(areas,'MAP'));
             MI = nan(length(areas),length(sessions));
             
             for isession = 1:length(sessions)
                 for iarea = 1:length(areas)
+                    
                     keys = fetch(obj & sessions(isession) & (experiment.Scan & ['brain_area="' areas{iarea} '"']));
                     if isempty(keys);continue;end
                     mi = [];
@@ -269,16 +331,18 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
             mx_nmi = max(nmi);
             mn_nmi = min(nmi);
             
-            figure
+            f = figure;
             colors = parula(100);
             plotMask(map.Masks)
             colormap parula
             c = colorbar;
             for iarea = 1:length(areas)
-                if isnan(nmi(iarea));continue;end
-                idx = ceil(((nmi(iarea) - mn_nmi) /(mx_nmi  - mn_nmi))*100);
-                if idx ==0;idx =1;end
-                plotMask(map.Masks & ['area="' areas{iarea} '"'],colors(idx,:),sum(~isnan(MI(iarea,:))))
+                try
+                    if isnan(nmi(iarea));continue;end
+                    idx = ceil(((nmi(iarea) - mn_nmi) /(mx_nmi  - mn_nmi))*100);
+                    if idx ==0;idx =1;end
+                    plotMask(map.Masks & ['area="' areas{iarea} '"'],colors(idx,:),sum(~isnan(MI(iarea,:))))
+                end
             end
             set(gcf,'name','Normalized performance')
             labels = mn_nmi: (mx_nmi - mn_nmi)/5 :mx_nmi;
@@ -294,11 +358,11 @@ classdef Decode < dj.Relvar & dj.AutoPopulate
                 key.dec_opt = 11;
             end
             
-            if ~isfield(key,'spike_inference')
+            if ~isfield(key,'spike_method')
                 key.spike_inference = 3;
             end
             
-            if ~isfield(key,'segment_method')
+            if ~isfield(key,'extract_method')
                 key.segment_method = 2;
             end
             

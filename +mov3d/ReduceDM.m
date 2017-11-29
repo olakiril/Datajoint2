@@ -17,7 +17,7 @@ classdef ReduceDM < dj.Relvar & dj.AutoPopulate
     
     properties
         popRel  = (experiment.Scan  ...
-            * (preprocess.Spikes & 'spike_method = 3'  & 'extract_method=2'))...
+            * (preprocess.Spikes & 'spike_method = 5'  & 'extract_method=2'))...
             * (mov3d.ReduceDMOpt & 'process = "yes"') ...
             * (preprocess.Sync & (vis.MovieClipCond & (vis.Movie & 'movie_class="object3d"')))
     end
@@ -64,12 +64,6 @@ classdef ReduceDM < dj.Relvar & dj.AutoPopulate
             % do it
             mappedX = tsne(NewData', [], no_dims, initial_dims, perplexity);
             
-            % correct for key mismach
-            tuple = rmfield(tuple,'spike_method');
-            tuple = rmfield(tuple,'extract_method');
-            tuple.spike_inference = key.spike_method;
-            tuple.segment_method = key.extract_method;
-            
             % insert
             tuple.mapped = mappedX;
             tuple.params = NewParams;
@@ -86,7 +80,7 @@ classdef ReduceDM < dj.Relvar & dj.AutoPopulate
             if nargin<3
                 bin = fetch1(mov3d.ReduceDMOpt & key, 'binsize');
             else
-                 bin = ibin;
+                bin = ibin;
             end
             
             [Traces, caTimes] = pipetools.getAdjustedSpikes(key);
@@ -129,11 +123,6 @@ classdef ReduceDM < dj.Relvar & dj.AutoPopulate
             objB = permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),B,'uni',0)'),size(B{1},2),[]),[3 1 2]);
             objB_trials = permute(reshape(cell2mat(cellfun(@(x) reshape(x',[],1),B_trials,'uni',0)'),size(B_trials{1},2),[]),[3 1 2]);
             
-            % get params
-            [params, param_trials] = getParams(obj,key,bin);
-            objA_params = cell2mat(params(ismember(param_trials,cellfun(@(x) x(1),A_trials)))');
-            objB_params = cell2mat(params(ismember(param_trials,cellfun(@(x) x(1),B_trials)))');
-            
             % Arrange data
             mS = min([size(objA,3) size(objB,3)]);
             Data = reshape(permute(objA(:,:,1:mS),[2 4 3 1]),size(objA,2),1,[]);
@@ -141,9 +130,18 @@ classdef ReduceDM < dj.Relvar & dj.AutoPopulate
             Trials = reshape(permute(objA_trials(:,:,1:mS),[2 4 3 1]),size(objA_trials,2),1,[]);
             Trials(:,2,:) = reshape(permute(objB_trials(:,:,1:mS),[2 4 3 1]),size(objB_trials,2),1,[]);
             Trials = squeeze(Trials(1,:,:));
-            Params = permute(objA_params(1:mS,:),[2 3 1]);
-            Params(:,2,:) = permute(objB_params(1:mS,:),[2 3 1]);
             
+            % get params
+            try
+                [params, param_trials] = getParams(obj,key,bin);
+                objA_params = cell2mat(params(ismember(param_trials,cellfun(@(x) x(1),A_trials)))');
+                objB_params = cell2mat(params(ismember(param_trials,cellfun(@(x) x(1),B_trials)))');
+                Params = permute(objA_params(1:mS,:),[2 3 1]);
+                Params(:,2,:) = permute(objB_params(1:mS,:),[2 3 1]);
+            catch
+                disp('No parameters could be found!')
+                Params = nan(1,1,size(Data,3));
+            end
         end
         
         function [params, param_trials] = getParams(obj,key,bin)
@@ -197,18 +195,15 @@ classdef ReduceDM < dj.Relvar & dj.AutoPopulate
             
             tbin = 3;
             uTrials = unique(trials);
-%             figure
-%             hold on;
+            %             figure
+            %             hold on;
             param = squeeze(normalize(NewParams(param,:)));
             
             for itrial = 2:length(uTrials)
                 
                 trialIdx = trials==uTrials(itrial);
                 tIdx = all(Labels(trialIdx)==object);
-                
                 if tIdx;continue;end
-                
-                
                 xx = interpn(mappedX(trialIdx,1),tbin,'cubic');
                 yy = interpn(mappedX(trialIdx,2),tbin,'cubic');
                 zz = interpn(mappedX(trialIdx,3),tbin,'cubic');
@@ -219,11 +214,55 @@ classdef ReduceDM < dj.Relvar & dj.AutoPopulate
                     'facecol','no',...
                     'edgecol','interp',...
                     'linew',1,'facealpha',0.5,'edgealpha',0.5);
-                
-                
             end
-            
             colormap jet
+        end
+        
+        function plotObjs(obj,object)
+            
+            [trials,mappedX,Labels] = fetch1(obj,'trials','mapped','labels');
+            
+            if nargin<2;param = 1;end
+            if nargin<3;object=1;end
+            
+            tbin = 3;
+            uTrials = unique(trials);
+            %             figure
+            %             hold on;
+            
+            for itrial = 2:length(uTrials)
+                
+                trialIdx = trials==uTrials(itrial);
+                tIdx = all(Labels(trialIdx)==object);
+                if tIdx;continue;end
+                xx = interpn(mappedX(trialIdx,1),tbin,'cubic');
+                yy = interpn(mappedX(trialIdx,2),tbin,'cubic');
+                zz = interpn(mappedX(trialIdx,3),tbin,'cubic');
+                
+                %col = interpn(Labels(trialIdx),tbin,'cubic');
+                col = linspace(0,1,length(xx));
+                surface([xx; xx],[yy; yy],[zz; zz],[col;col],...
+                    'facecol','no',...
+                    'edgecol','interp',...
+                    'linew',1,'facealpha',0.5,'edgealpha',0.5);
+            end
+            colormap jet
+        end
+        
+        function plotDots(obj)
+            colors = [0 0 1;0.2 0.8 1;1 0 0;1 0.8 0.2];
+            
+            [trials,mappedX,Labels] = fetch1(obj,'trials','mapped','labels');
+            uTrials = unique(trials);
+            figure 
+            hold on
+            for itrial = 2:length(uTrials)
+                trialIdx = trials==uTrials(itrial);
+                tIdx = all(Labels(trialIdx)==2);
+                cidx = tIdx*2;
+                
+                plot3(mappedX(trialIdx,1),mappedX(trialIdx,2),mappedX(trialIdx,3),'.','color',colors(cidx+1,:))
+            end
         end
     end
     

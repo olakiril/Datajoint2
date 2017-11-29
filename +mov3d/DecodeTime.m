@@ -15,7 +15,7 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
     
     properties
         popRel  = (experiment.Scan  ...
-            * (preprocess.Spikes & 'spike_method = 3'  & 'extract_method=2'))...
+            * (preprocess.Spikes & 'spike_method = 5'  & 'extract_method=2'))...
             * (mov3d.DecodeTimeOpt & 'process = "yes"') ...
             * (preprocess.Sync & (vis.MovieClipCond & (vis.Movie & 'movie_class="object3d"')))
     end
@@ -33,11 +33,12 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
             [Data, Trials] = getData(self,key); % [Cells, Obj, Trials]
             
             % create trial index
+            trial_idx = 1:size(Data,3);
             switch trial_method
                 case 'random'
-                    trial_idx = randperm(size(Data,3));
+                    data_idx = randperm(size(Data,3));
                 case 'sequential'
-                    trial_idx = 1:size(Data,3);
+                    data_idx = 1:size(Data,3);
             end
             trial_bin = floor(size(Data,3)/trial_bins);
             minBinNum = mode(diff(find(abs(diff(reshape(Trials',[],1)))>0)));
@@ -48,11 +49,11 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
             parfor itrial = 1:trial_bins
                 
                 display(['Decoding trial # ' num2str(itrial)])
-                tIdx = trial_idx(...
-                    1+trial_bin*(itrial-1):trial_bin*itrial);
-                data = Data(:,:,tIdx);
-                trials = Trials(:,tIdx);
+                tIdx = 1+trial_bin*(itrial-1):trial_bin*itrial;
+                data = Data(:,:,data_idx(tIdx));
+                trials = Trials(:,trial_idx(tIdx));
                 
+                mi = nan(size(data,2),size(data,3));
                 if strcmp(dec_method,'nnclassSV')
                     % mi = eval([dec_method '(data,''trials'',1)']);
                     mi = nnclassSV(data,'trials',1);
@@ -82,10 +83,10 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
             tuple.obj_trans = obj_trans;
             
             % correct for key mismach
-            tuple = rmfield(tuple,'spike_method');
-            tuple = rmfield(tuple,'extract_method');
-            tuple.spike_inference = key.spike_method;
-            tuple.segment_method = key.extract_method;
+%             tuple = rmfield(tuple,'spike_method');
+%             tuple = rmfield(tuple,'extract_method');
+%             tuple.spike_inference = key.spike_method;
+%             tuple.segment_method = key.extract_method;
             self.insert(tuple)
         end
     end
@@ -147,19 +148,68 @@ classdef DecodeTime < dj.Relvar & dj.AutoPopulate
         end
         
         function plot(obj,k)
-            bin = fetch1(mov3d.DecodeTimeOpt & k,'binsize');
-            obj_cis = fetch1(mov3d.DecodeTime & k,'obj_cis');
-            obj_trans = fetch1(mov3d.DecodeTime & k,'obj_trans');
-            idx = ~cellfun(@isempty,obj_cis);
-            cis = cell2mat(obj_cis(idx)');
-            idx = ~cellfun(@isempty,obj_trans);
-            trans = cell2mat(obj_trans(idx)');
-            figure
-            errorPlot(1:size(cis,1),cis','errorColor',[0 0 0.5'])
-            hold on
-            errorPlot(1:size(cis,1),trans','errorColor',[0.5 0 0])
-            ylim([0.5 1])
-            set(gca, 'xtick',1:size(cis,1),'xticklabel',bin/1000:bin/1000:5)
+            if nargin<2
+                keys = fetch(obj);
+            else
+                keys = fetch(obj & k);
+            end
+            for k = keys'
+                bin = fetch1(mov3d.DecodeTimeOpt & k,'binsize');
+                obj_cis = fetch1(mov3d.DecodeTime & k,'obj_cis');
+                obj_trans = fetch1(mov3d.DecodeTime & k,'obj_trans');
+                idx = ~cellfun(@isempty,obj_cis);
+                cis = cell2mat(obj_cis(idx)');
+                idx = ~cellfun(@isempty,obj_trans);
+                trans = cell2mat(obj_trans(idx)');
+                clf
+                errorPlot(1:size(cis,1),cis','errorColor',[0 0 0.5'])
+                hold on
+                errorPlot(1:size(cis,1),trans','errorColor',[0.5 0 0])
+                ylim([0.5 1])
+                set(gca, 'xtick',1:size(cis,1),'xticklabel',bin/1000:bin/1000:5)
+                try
+                    r = nanmean(reshape(fetch1(mov3d.Repeats & k & 'rep_opt = 4','r'),[],1));
+                catch
+                    r = 0;
+                end
+                title(sprintf('animal:%d session:%d scan:%d area:%s dec_opt:%d r:%.2f',...
+                    k.animal_id,k.session,k.scan_idx,...
+                    fetch1(experiment.Scan & k,'brain_area'),k.dec_opt,r))
+                pause
+            end
+        end
+        
+        function plotArea(obj,k,thr)
+            process = @(x) cellfun(@(y) mean(cell2mat(y(~cellfun(@isempty,y))'),2),x,'uni',0);
+            if nargin<2 || isempty(k)
+                keys = fetch(obj);
+            else
+                keys = fetch(obj & k);
+            end
+            areas = fetchn(experiment.Scan & keys,'brain_area');
+            bin = unique(fetchn(mov3d.DecodeTimeOpt & keys,'binsize'));
+            dec_opt = unique(fetchn(mov3d.DecodeTimeOpt & keys,'dec_opt'));
+            for area = unique(areas)'
+                if nargin>2 && thr>0
+                    [obj_cis, obj_trans, r] = ...
+                        fetchn(mov3d.DecodeTime * (mov3d.Repeats & 'rep_opt = 4') & keys(strcmp(areas,area)),...
+                        'obj_cis','obj_trans','r');
+                    cis = cell2mat(process(obj_cis(cellfun(@(x) nanmean(x(:))>thr, r)))');
+                    trans = cell2mat(process(obj_trans(cellfun(@(x) nanmean(x(:))>thr, r)))');
+                else
+                   [obj_cis, obj_trans] = ...
+                        fetchn(mov3d.DecodeTime& keys(strcmp(areas,area)),...
+                        'obj_cis','obj_trans');
+                    cis = cell2mat(process(obj_cis)');
+                    trans = cell2mat(process(obj_trans)');
+                end
+                figure
+                errorPlot(1:size(cis,1),cis','errorColor',[0 0 0.5'])
+                errorPlot(1:size(cis,1),trans','errorColor',[0.5 0 0])
+                ylim([0.5 1])
+                set(gca, 'xtick',1:size(cis,1),'xticklabel',bin/1000:bin/1000:5)
+                title(sprintf('area:%s dec_opt:%d',area{1},dec_opt))
+            end
         end
     end
     

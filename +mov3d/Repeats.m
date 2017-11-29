@@ -203,21 +203,30 @@ classdef Repeats < dj.Relvar & dj.AutoPopulate
                 bin = fetch1(mov3d.RepeatsOpt & key, 'binsize');
             end
             
-            [Data, Stims] = getData(obj,key,bin); % [Cells, Time, Trials]
-            dat= []; s = []; im = [];
-            fig = figure;
-            for iobj = 1:length(Data)
-                data = Data{iobj};
-                if params.rand; data = data(randperm(size(data,1)),:,:);end
-                if params.trials; data = permute(data,[3 2 1]);end
-                trial_num(iobj) = size(data,3);
-                bin_num(iobj) = size(data,2);
-                data(:,:,end+1:end+floor(params.gap/100*trial_num(iobj))) = min(data(:));
-                dat{iobj} = (reshape(permute(data,[2 3 1]),size(data,2),[]));
-                dat_sz(iobj) = size(dat{iobj},2);
+            if nargin<2 || isempty(key)
+               keys = fetch(obj);
+            else
+                keys = fetch(mov3d.Repeats & key);
             end
-            step = floor(params.scroll_step/100*min(dat_sz));
-            plotData
+            for key = keys'
+                try
+                    [Data, Stims] = getData(obj,key,bin); % [Cells, Time, Trials]
+                    dat= []; s = []; im = [];
+                    fig = figure;
+                    for iobj = 1:length(Data)
+                        data = Data{iobj};
+                        if params.rand; data = data(randperm(size(data,1)),:,:);end
+                        if params.trials; data = permute(data,[3 2 1]);end
+                        trial_num(iobj) = size(data,3);
+                        bin_num(iobj) = size(data,2);
+                        data(:,:,end+1:end+floor(params.gap/100*trial_num(iobj))) = min(data(:));
+                        dat{iobj} = (reshape(permute(data,[2 3 1]),size(data,2),[]));
+                        dat_sz(iobj) = size(dat{iobj},2);
+                    end
+                    step = floor(params.scroll_step/100*min(dat_sz));
+                    plotData
+                end
+            end
             
             function plotData
                 clf
