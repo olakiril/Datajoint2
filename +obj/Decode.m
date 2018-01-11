@@ -17,13 +17,9 @@ classdef Decode < dj.Computed
     %#ok<*INUSL>
     
     properties
-        keySource  = (fuse.Activity * map.Area & map.AreaMembership)...
+        keySource  = (fuse.ScanDone * map.Area & map.AreaMembership)...
             * (obj.DecodeOpt & 'process = "yes"') ...
             * (stimulus.Sync & (stimulus.Movie & 'movie_class="object3d"'))
-        
-       * proj(shared.SpikeMethod,'spike_method') * proj(shared.SegmentationMethod,'segmentation_method')
-        (shared.MaskType & 'type = "soma"')
-        
     end
     
     methods(Access=protected)
