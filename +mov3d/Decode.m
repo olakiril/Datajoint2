@@ -8,7 +8,7 @@ mov3d.Decode (computed) # calcium trace
 mi                    : longblob                      # mutual information
 %}
 
-classdef Decode < dj.Relvar & dj.AutoPopulate
+classdef Decode < dj.Computed
     %#ok<*AGROW>
     %#ok<*INUSL>
     

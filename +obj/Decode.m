@@ -1,10 +1,10 @@
 %{
-obj.Decode (computed) # Object decoding
--> stimulus.Sync
--> experiment.BrainArea
+# Object decoding
+-> fuse.ScanDone
+-> anatomy.Area
 -> obj.DecodeOpt
--> fuse.Activity
 ---
+-> stimulus.Sync
 p                     : longblob                      # performance
 p_shuffle             : longblob                      # chance performance
 train_groups          : longblob                      # train group info
@@ -17,9 +17,9 @@ classdef Decode < dj.Computed
     %#ok<*INUSL>
     
     properties
-        keySource  = (fuse.ScanDone * map.Area & map.AreaMembership)...
+             keySource  = (fuse.ScanDone * anatomy.Area & anatomy.AreaMembership)...
             * (obj.DecodeOpt & 'process = "yes"') ...
-            * (stimulus.Sync & (stimulus.Movie & 'movie_class="object3d"'))
+            & (stimulus.Sync & (stimulus.Trial &  (stimulus.Clip & (stimulus.Movie & 'movie_class="object3d"'))))
     end
     
     methods(Access=protected)
@@ -80,88 +80,45 @@ classdef Decode < dj.Computed
             if nargin<3
                 bin = fetch1(obj.DecodeOpt & key, 'binsize');
             end
-            
+
             % get traces
-            trace_keys = fetch(preprocess.SpikesRateTrace * (experiment.BrainArea & 'brain_area <> "unknown"') & map.AreaMembership & key);
-            [Traces, caTimes] = pipetools.getAdjustedSpikes(trace_keys);
-            xm = min([length(caTimes) length(Traces)]);
-            X = @(t) interp1(caTimes(1:xm)-caTimes(1), Traces(1:xm,:), t, 'linear', nan);  % traces indexed by time
+            [Traces, caTimes] = getAdjustedSpikes(fuse.ActivityTrace & key,'soma'); % [time cells]
+            
+            % get rid of nans
+            notnanidx = ~isnan(mean(Traces,2)); % faster than all
+            Traces = Traces(notnanidx,:);
+            caTimes = caTimes(notnanidx);
+           
+            % interpolate over time
+            X = @(t) interp1(caTimes-caTimes(1), Traces, t, 'linear', 'extrap');  % traces indexed by time
             
             % fetch stuff
-            trials = pro(preprocess.Sync*vis.Trial & (preprocess.Prepare & key) & 'trial_idx between first_trial and last_trial', 'cond_idx', 'flip_times');
-            Stims = unique(fetchn(vis.MovieClipCond & trials,'movie_name'));
-            [flip_times, trial_idxs] = (fetchn(trials * vis.MovieClipCond,'flip_times','trial_idx'));
+            [flip_times, trial_idxs] = fetchn(stimulus.Trial & key,'flip_times','trial_idx');
             ft_sz = cellfun(@(x) size(x,2),flip_times);
             tidx = ft_sz>=prctile(ft_sz,99);
             trial_idxs = trial_idxs(tidx);
             flip_times = cell2mat(flip_times(tidx));
+            Stims = unique(fetchn(stimulus.Clip &  (stimulus.Trial & key),'movie_name'));
             
             % subsample traces
             fps = 1/median(diff(flip_times(1,:)));
             d = max(1,round(bin/1000*fps));
-            %             traces = convn(permute(X(flip_times - caTimes(1)),[2 3 1]),ones(d,1)/d,'same');
-            % traces = traces(1:d:end,:,:);
-            traces = permute(X(flip_times - caTimes(1)),[2 3 1]);
-            traces = trresize(traces,fps,bin,'linear');
+            Traces = convn(permute(X(flip_times - caTimes(1)),[2 3 1]),ones(d,1)/d,'same');
+            Traces = permute(Traces(1:d:end,:,:),[2 1 3]); % in [cells bins trials]
             
             % split for unique stimuli
             for istim = 1:length(Stims)
-                [s_trials,s_clips,s_names] = fetchn(trials*vis.MovieClipCond &...
-                    sprintf('movie_name = "%s"',Stims{istim}),'trial_idx','clip_number','movie_name');
+                [s_trials,s_clips,s_names] = fetchn(stimulus.Trial * stimulus.Clip & ...
+                    sprintf('movie_name = "%s"',Stims{istim}) & key, 'trial_idx','clip_number','movie_name');
                 [tr_idx, b]= ismember(trial_idxs,s_trials);
                 st_idx = b(b>0);
-                dat = permute(traces(:,:,tr_idx),[2 3 1]);
-                info.bins{istim} = reshape(repmat(1:size(dat,3),size(dat,2),1),1,[]);
-                info.trials{istim} = reshape(repmat(s_trials(st_idx),1,size(dat,3)),1,[]);
-                info.clips{istim} = reshape(repmat(s_clips(st_idx),1,size(dat,3)),1,[]);
-                info.names{istim} = reshape(repmat(s_names(st_idx),1,size(dat,3)),1,[]);
-                Data{istim} = reshape(dat,size(traces,2),[]);
+                dat = Traces(:,:,tr_idx);
+                info.bins{istim} = reshape(repmat(1:size(dat,2),size(dat,3),1)',[],1);
+                info.trials{istim} = reshape(repmat(s_trials(st_idx),1,size(dat,2))',[],1);
+                info.clips{istim} = reshape(repmat(s_clips(st_idx),1,size(dat,2))',[],1);
+                info.names{istim} = reshape(repmat(s_names(st_idx),1,size(dat,2))',[],1);
+                Data{istim} = reshape(dat,size(Traces,1),[]);
             end
-        end
-        
-        function [params, param_trials, param_names] = getParams(obj,key,bin)
-            
-            speed = @(x,y,timestep) sqrt(x.^2+y.^2)./timestep;
-            binsize= fetch1(mov3d.DecodeMultiOpt & key, 'binsize');
-            if nargin>2;binsize = bin;end
-            
-            % stimulus_trial_xy_position
-            [paramsObj,obj,fps] = fetchn(vis.Movie & (vis.MovieClipCond & key),...
-                'params','movie_name','frame_rate');
-            param_names = fieldnames(paramsObj{1});
-            
-            int_params = [];
-            for iobj = 1:length(obj)
-                timestep = mean(diff(paramsObj{iobj}.frame_id))/fps(iobj);
-                par = struct2array(paramsObj{iobj});
-                
-                %par = par(:,[14 16:end]);
-                %par(:,end+1) = [0;speed(diff(par(:,1)),diff(par(:,2)),timestep)];
-                frameStep = fps(iobj)*binsize/1000; % in frames
-                frameIdx = 1:frameStep:paramsObj{iobj}.frame_id(end);
-                int_params{iobj} = nan(length(frameIdx),size(par,2));
-                for iparam = 1:size(par,2)
-                    int_params{iobj}(:,iparam) = interpn(paramsObj{iobj}.frame_id,par(:,iparam),frameIdx,'cubic');
-                end
-            end
-            
-            % get trials
-            trials = pro(preprocess.Sync*vis.Trial & (experiment.Scan & key) & 'trial_idx between first_trial and last_trial', 'cond_idx', 'flip_times');
-            trials = fetch(trials*vis.MovieClipCond, '*', 'ORDER BY trial_idx'); %fetch(trials*psy.Movie, '*', 'ORDER BY trial_idx') 2016-08
-            
-            % find bins within the pop RF
-            params = []; param_trials = [];
-            
-            for itrial = 1:length(trials)
-                param_trials(itrial) = trials(itrial).trial_idx;
-                obj_idx = strcmp(obj,trials(itrial).movie_name);
-                frames_per_trial = trials(itrial).cut_after*fps(obj_idx);
-                start = (trials(itrial).clip_number - 1)*frames_per_trial;
-                params{itrial} = int_params{obj_idx}(find(frameIdx>start,1,'first') : ...
-                    find(frameIdx<(start+frames_per_trial),1,'last'),:);
-            end
-            
-            params = cell2mat(cellfun(@(x) permute(x,[1 3 2]),params,'uni',0));
         end
         
         function [train_groups, test_groups] = getGroups(obj,Stims,train_set,test_set)
@@ -299,11 +256,6 @@ classdef Decode < dj.Computed
             RR = cellfun(@cell2mat,mat2cell(cellfun(@(x) permute(x,[3 2 1]),permute(reshape([RR{:}],...
                 length(Data),repetitions),[2 1]),'uni',0),repetitions,ones(1,length(Data))),'uni',0);
             
-            %             % convert {reps}{obj}[1 trials] to {obj}[reps trials]
-            %             PP = cellfun(@cell2mat,mat2cell(permute(reshape([PP{:}],...
-            %                 length(Data),repetitions),[2 1]),repetitions,ones(1,length(Data))),'uni',0);
-            %             RR = cellfun(@cell2mat,mat2cell(permute(reshape([RR{:}],...
-            %                 length(Data),repetitions),[2 1]),repetitions,ones(1,length(Data))),'uni',0);
         end
         
     end
