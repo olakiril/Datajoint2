@@ -93,7 +93,7 @@ classdef Decode < dj.Computed
             X = @(t) interp1(caTimes-caTimes(1), Traces, t, 'linear', 'extrap');  % traces indexed by time
             
             % fetch stuff
-            [flip_times, trial_idxs] = fetchn(stimulus.Trial & key,'flip_times','trial_idx');
+            [flip_times, trial_idxs] = fetchn(stimulus.Trial &  (stimulus.Clip & (stimulus.Movie & 'movie_class="object3d"')) & key,'flip_times','trial_idx');
             ft_sz = cellfun(@(x) size(x,2),flip_times);
             tidx = ft_sz>=prctile(ft_sz,99);
             trial_idxs = trial_idxs(tidx);
