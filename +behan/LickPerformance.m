@@ -3,10 +3,10 @@
 ->beh.Session
 day                   : timestamp                      # day starts at 12AM
 ---
-HT                    : mediumint                      # hit trials
-FA                    : mediumint                      # false alarm trials
-MS                    : mediumint                      # miss trials
-CR                    : mediumint                      # correct rejection trials
+ht                    : int                            # hit trials
+fa                    : int                            # false alarm trials
+ms                    : int                            # miss trials
+cr                    : int                            # correct rejection trials
 pval                  : float                          # bootstrap p value of HIT_RATE > FA_RATE
 dprime                : float                          # Sensitivity d? = z(Hit) ? z(FA)
 perf                  : float                          # performance (HITS + CR/ALL TRIALS)
@@ -49,6 +49,9 @@ classdef LickPerformance < dj.Computed
                 day_start = start_times(IC==iday);
                 day_end = end_times(IC==iday);
                 
+                % disregard day with very few trials
+                if (TARGET_sum + DISTR_sum) < 20; continue; end 
+                
                 % calculate start and stop times
                 day_lick_times = ltimes(ltimes>min(day_start) & ltimes<max(day_end));
                 day_resp = false(1,length(day_start));
@@ -59,10 +62,10 @@ classdef LickPerformance < dj.Computed
                 % compute correct and wrong lick probabilities
                 HT_rate = sum(day_resp(TARGET_idx))/TARGET_sum; %  p(lick|target)
                 FA_rate = sum(day_resp(DISTR_idx))/DISTR_sum; %  p(lick|distractor)
-                tuple.HT = sum(day_resp(TARGET_idx)); 
-                tuple.FA = sum(day_resp(DISTR_idx)); 
-                tuple.MS = TARGET_sum - sum(day_resp(TARGET_idx)); 
-                tuple.CR = DISTR_sum - sum(day_resp(DISTR_idx));
+                tuple.ht = sum(day_resp(TARGET_idx)); 
+                tuple.fa = sum(day_resp(DISTR_idx)); 
+                tuple.ms = TARGET_sum - sum(day_resp(TARGET_idx)); 
+                tuple.cr = DISTR_sum - sum(day_resp(DISTR_idx));
                 
                 % bootstrap licks
                 rResp = cell2mat(arrayfun(@(x) day_resp(randperm(end)),1:1000,'uni',0)');
@@ -76,7 +79,7 @@ classdef LickPerformance < dj.Computed
                 vH = HT_rate * (1-HT_rate) / (TARGET_sum*exp(-zH*zH/2)^2/(2*pi));
                 vF = FA_rate * (1-FA_rate) / (DISTR_sum*exp(-zF*zF/2)^2/(2*pi));
                 tuple.dprime = (zH - zF)/sqrt(2);
-                tuple.perf = (tuple.HT + tuple.CR)/(TARGET_sum + DISTR_sum);
+                tuple.perf = (tuple.ht + tuple.cr)/(TARGET_sum + DISTR_sum);
                 tuple.dconf = 1.96*sqrt(vH+vF)/sqrt(2);
                 
                 % insert 
