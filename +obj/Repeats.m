@@ -14,8 +14,8 @@ classdef Repeats < dj.Computed
     %#ok<*INUSL>
     
     properties
-        keySource  = fuse.ScanDone * (obj.RepeatsOpt & 'process = "yes"') ...
-            & (stimulus.Sync & (stimulus.Trial &  (stimulus.Clip & (stimulus.Movie & 'movie_class="object3d"'))))
+        keySource = fuse.ScanDone * (obj.RepeatsOpt & 'process = "yes"') ...
+            & (stimulus.Sync & (stimulus.Trial & (stimulus.Clip & (stimulus.Movie & 'movie_class="object3d"'))))
     end
     
     methods(Access=protected)
@@ -100,7 +100,7 @@ classdef Repeats < dj.Computed
                                     idx(irep) = false;
                                     c(irep) = corr(traceZ(:,irep),mean(traceZ(:,idx),2));
                                 end
-                            cor(icell) = nanmean(c);
+                                cor(icell) = nanmean(c);
                             end
                             r_s(:,iobj) = (cor);
                         end
@@ -199,7 +199,7 @@ classdef Repeats < dj.Computed
             end
             
             if nargin<2 || isempty(key)
-               keys = fetch(obj);
+                keys = fetch(obj);
             else
                 keys = fetch(obj.Repeats & key);
             end

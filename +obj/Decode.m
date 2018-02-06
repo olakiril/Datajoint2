@@ -258,5 +258,38 @@ classdef Decode < dj.Computed
             
         end
         
+        function plotMasks(self,norm)
+            
+            % get data
+            method = fetch1(obj.DecodeOpt & self,'decoder');
+            [mi, area] = fetchn(self,'p','brain_area');
+            areas = unique(area);
+            MI = cell(size(areas));
+            for iarea = 1:length(areas)
+                MI{iarea} = cellfun(@(x) nanmean(reshape(cellfun(@(xx) nanmean(xx(:)),x),[],1)), mi(strcmp(area,areas(iarea))));
+            end
+            
+            % plot
+            f = figure;
+            colors = parula(30);
+            plotMask(anatomy.Masks)
+            colormap parula
+            c = colorbar;
+            name = 'Classification performance (%)';
+            ylabel(c,name,'Rotation',-90,'VerticalAlignment','baseline')
+            
+            mxMI = max(cellfun(@nanmean,MI));
+            if nargin>1
+                mx = mxMI;
+            else
+                mx =1;
+            end
+            for iarea = 1:length(areas)
+                mi = nanmean(MI{iarea});
+                idx = double(uint8(floor(((mi-0.5)/(mx - 0.5))*0.99*size(colors,1)))+1);
+                plotMask(anatomy.Masks & ['brain_area="' areas{iarea} '"'],colors(idx,:),length(MI{iarea}))
+            end
+            set(c,'ytick',linspace(0,1,5),'yticklabel',roundall(linspace(0.5,mx,5),0.01))
+        end
     end
 end
