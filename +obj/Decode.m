@@ -17,7 +17,7 @@ classdef Decode < dj.Computed
     %#ok<*INUSL>
     
     properties
-             keySource  = (fuse.ScanDone * anatomy.Area & anatomy.AreaMembership)...
+        keySource  = (fuse.ScanDone * anatomy.Area & anatomy.AreaMembership)...
             * (obj.DecodeOpt & 'process = "yes"') ...
             & (stimulus.Sync & (stimulus.Trial &  (stimulus.Clip & (stimulus.Movie & 'movie_class="object3d"'))))
     end
@@ -80,7 +80,7 @@ classdef Decode < dj.Computed
             if nargin<3
                 bin = fetch1(obj.DecodeOpt & key, 'binsize');
             end
-
+            
             % get traces
             [Traces, caTimes] = getAdjustedSpikes(fuse.ActivityTrace & key,'soma'); % [time cells]
             
@@ -88,7 +88,7 @@ classdef Decode < dj.Computed
             notnanidx = ~isnan(mean(Traces,2)); % faster than all
             Traces = Traces(notnanidx,:);
             caTimes = caTimes(notnanidx);
-           
+            
             % interpolate over time
             X = @(t) interp1(caTimes-caTimes(1), Traces, t, 'linear', 'extrap');  % traces indexed by time
             
