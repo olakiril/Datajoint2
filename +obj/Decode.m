@@ -223,7 +223,7 @@ classdef Decode < dj.Computed
                 % get cell index
                 cell_idx = randperm(size(data,1));
                 if strcmp(select_method,'subsample')
-                    cell_num = 1:2:size(data,1);
+                    cell_num = 1:10:size(data,1);
                 else
                     cell_num = size(data,1);
                 end
@@ -261,12 +261,35 @@ classdef Decode < dj.Computed
         function plotMasks(self,norm)
             
             % get data
-            method = fetch1(obj.DecodeOpt & self,'decoder');
-            [mi, area] = fetchn(self,'p','brain_area');
+            [perf, area, cells] = fetchn(obj.Decode * aggr(obj.Decode, anatomy.AreaMembership, 'count(*)->n') & 'brain_area <> "unknown"','p','brain_area','n');
             areas = unique(area);
             MI = cell(size(areas));
             for iarea = 1:length(areas)
-                MI{iarea} = cellfun(@(x) nanmean(reshape(cellfun(@(xx) nanmean(xx(:)),x),[],1)), mi(strcmp(area,areas(iarea))));
+                idx = find(strcmp(area,areas(iarea)));
+                if nargin>1 && norm
+                    mi = nan(length(idx),1);
+                    for iscan = 1:length(idx)
+                        R = cell2mat(perf{iscan});
+                        CM = nan(2,2);
+                        CM([1 4]) = nansum(R(:)==1);
+                        CM([2 3]) = nansum(R(:)==0);
+                        p = CM/sum(CM(:));
+                        pi = sum(CM,2)/sum(CM(:));
+                        pj = sum(CM,1)/sum(CM(:));
+                        pij = pi*pj;
+                        if sum(CM([2 3])) == 0
+                            mi(iscan) = 1;
+                        elseif sum(CM([1 4])) == 0
+                            mi(iscan) = 0;
+                        else
+                            mi(iscan) = sum(sum(p.*log2(p./pij)));
+                        end
+                    end
+% %                     MI{iarea} = mi./double(cells(idx));
+                    MI{iarea} = mi;
+                else
+                    MI{iarea} = cellfun(@(x) nanmean(reshape(cellfun(@(xx) nanmean(xx(:)),x),[],1)), perf(idx));
+                end
             end
             
             % plot
@@ -278,18 +301,15 @@ classdef Decode < dj.Computed
             name = 'Classification performance (%)';
             ylabel(c,name,'Rotation',-90,'VerticalAlignment','baseline')
             
-            mxMI = max(cellfun(@nanmean,MI));
-            if nargin>1
-                mx = mxMI;
-            else
-                mx =1;
-            end
+            
+            mx = max(cellfun(@nanmean,MI));
+            mn = min(cellfun(@nanmean,MI));
             for iarea = 1:length(areas)
                 mi = nanmean(MI{iarea});
-                idx = double(uint8(floor(((mi-0.5)/(mx - 0.5))*0.99*size(colors,1)))+1);
+                idx = double(uint8(floor(((mi-mn)/(mx - mn))*0.99*size(colors,1)))+1);
                 plotMask(anatomy.Masks & ['brain_area="' areas{iarea} '"'],colors(idx,:),length(MI{iarea}))
             end
-            set(c,'ytick',linspace(0,1,5),'yticklabel',roundall(linspace(0.5,mx,5),0.01))
+            set(c,'ytick',linspace(0,1,5),'yticklabel',roundall(linspace(mn,mx,5),0.01))
         end
     end
 end
