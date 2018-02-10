@@ -167,7 +167,14 @@ classdef Decode < dj.Computed
                 group_num = length(Data);
                 
                 % equalize by undersampling shorter class & randomize trial sequence
-                msz = min(cellfun(@(x) size(x,2),Data));
+                msz = min(cellfun(@(x) size(x,2),Data)); % calculate minimum class length
+                  
+                % calculate fold bin size and recompute minimum length of data
+                if k_fold<2;bins = msz;else;bins = k_fold;end
+                bin_sz = floor(msz/bins);
+                msz = bin_sz*bins;
+                
+                % undersample data
                 data = cellfun(@(x) x(:,randperm(s,size(x,2),msz)),Data,'uni',0);
                 
                 % use data as test_data if not provided
@@ -182,10 +189,7 @@ classdef Decode < dj.Computed
                     data_idx = cellfun(@(x) randperm(s,size(x,2)),test_Data,'uni',0);
                 end
                 
-                % make group identities & build indexes
-                if k_fold<2;bins = msz;else;bins = k_fold;end
-                bin_sz = floor(msz/bins);
-                
+                 % make group identities & build indexes
                 for iclass = 1:group_num
                     % make group identities
                     groups{iclass} = ones(1,size(data{iclass},2)) * iclass;
@@ -311,5 +315,7 @@ classdef Decode < dj.Computed
             end
             set(c,'ytick',linspace(0,1,5),'yticklabel',roundall(linspace(mn,mx,5),0.01))
         end
+        
+        
     end
 end
