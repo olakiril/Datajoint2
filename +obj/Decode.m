@@ -168,7 +168,7 @@ classdef Decode < dj.Computed
                 
                 % equalize by undersampling shorter class & randomize trial sequence
                 msz = min(cellfun(@(x) size(x,2),Data)); % calculate minimum class length
-                  
+                
                 % calculate fold bin size and recompute minimum length of data
                 if k_fold<2;bins = msz;else;bins = k_fold;end
                 bin_sz = floor(msz/bins);
@@ -189,7 +189,7 @@ classdef Decode < dj.Computed
                     data_idx = cellfun(@(x) randperm(s,size(x,2)),test_Data,'uni',0);
                 end
                 
-                 % make group identities & build indexes
+                % make group identities & build indexes
                 for iclass = 1:group_num
                     % make group identities
                     groups{iclass} = ones(1,size(data{iclass},2)) * iclass;
@@ -273,7 +273,7 @@ classdef Decode < dj.Computed
                 if nargin>1 && norm
                     mi = nan(length(idx),1);
                     for iscan = 1:length(idx)
-                        R = cell2mat(perf{iscan});
+                        R = cell2mat(perf{idx(iscan)});
                         CM = nan(2,2);
                         CM([1 4]) = nansum(R(:)==1);
                         CM([2 3]) = nansum(R(:)==0);
@@ -289,8 +289,8 @@ classdef Decode < dj.Computed
                             mi(iscan) = sum(sum(p.*log2(p./pij)));
                         end
                     end
-% %                     MI{iarea} = mi./double(cells(idx));
-                    MI{iarea} = mi;
+                    MI{iarea} = mi./double(cells(idx));
+                    %                    MI{iarea} = mi;
                 else
                     MI{iarea} = cellfun(@(x) nanmean(reshape(cellfun(@(xx) nanmean(xx(:)),x),[],1)), perf(idx));
                 end
@@ -313,9 +313,26 @@ classdef Decode < dj.Computed
                 idx = double(uint8(floor(((mi-mn)/(mx - mn))*0.99*size(colors,1)))+1);
                 plotMask(anatomy.Masks & ['brain_area="' areas{iarea} '"'],colors(idx,:),length(MI{iarea}))
             end
-            set(c,'ytick',linspace(0,1,5),'yticklabel',roundall(linspace(mn,mx,5),0.01))
+            set(c,'ytick',linspace(0,1,5),'yticklabel',roundall(linspace(mn,mx,5),mx/10))
         end
-        
-        
+    end
+    
+    methods (Static)
+        function mi = getMI(R)
+            CM = nan(2,2);
+            CM([1 4]) = nansum(R(:)==1);
+            CM([2 3]) = nansum(R(:)==0);
+            p = CM/sum(CM(:));
+            pi = sum(CM,2)/sum(CM(:));
+            pj = sum(CM,1)/sum(CM(:));
+            pij = pi*pj;
+            if sum(CM([2 3])) == 0
+                mi = 1;
+            elseif sum(CM([1 4])) == 0
+                mi = 0;
+            else
+                mi = sum(sum(p.*log2(p./pij)));
+            end
+        end
     end
 end
