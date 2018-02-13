@@ -4,9 +4,6 @@
 -> fuse.ScanDone
 ---
 -> stimulus.Sync
-r                    : longblob                      # reliability
-r_shuffle            : longblob                      # chance
-p_shuffle            : longblob                      # p value
 %}
 
 classdef Repeats < dj.Computed
@@ -77,7 +74,7 @@ classdef Repeats < dj.Computed
                     for iobj = 1:length(Data)
                         cor = nan(size(Data{iobj},1),1);
                         for icell = 1:size(Data{iobj},1)
-                            traceZ = zscore(squeeze(Data{iobj}(icell,:,:)));
+                            traceZ = zscore(squeeze(single(Data{iobj}(icell,:,:))));
                             for irep = 1:size(traceZ,2)
                                 idx = true(size(traceZ,2),1);
                                 idx(irep) = false;
@@ -155,7 +152,7 @@ classdef Repeats < dj.Computed
             fps = 1/median(diff(flip_times(1,:)));
             d = max(1,round(bin/1000*fps));
             traces = convn(permute(X(flip_times - caTimes(1)),[2 3 1]),ones(d,1)/d,'same');
-            traces = traces(1:d:end,:,:);
+            traces = uint16(normalize(traces(1:d:end,:,:))*double(intmax('uint16')));
             
             % randomize
             if nargin>3 && shuffle
