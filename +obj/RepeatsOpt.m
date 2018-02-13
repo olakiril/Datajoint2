@@ -7,7 +7,7 @@ binsize=500                       : float                               # time w
 method="explainedVar"             : enum('explainedVar','corr','oracle')# reliability method
 process="yes"                     : enum('no','yes')                    # do it or not
 restrict_rf=0                     : float                               # restrict anaysis to population RF
-suffle=1000                       : smallint                            # bootstrap shuffling number
+shuffle=1000                       : smallint                            # bootstrap shuffling number
 %}
 
 

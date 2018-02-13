@@ -123,7 +123,7 @@ classdef Repeats < dj.Computed
     end
     
     methods
-        function [Data,Stims,rData] = getData(obj,key,bin,shuffle) % {uni_stims}(cells,time,repeats)
+        function [Data,Stims,rData] = getData(self,key,bin,shuffle) % {uni_stims}(cells,time,repeats)
             
             if nargin<3 || isempty(bin)
                 [bin] = fetch1(obj.RepeatsOpt & key, 'binsize');
