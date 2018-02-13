@@ -146,6 +146,7 @@ classdef Repeats < dj.Computed
             [~,~,uni_idx] = unique(stimuli,'rows');
             ridx = arrayfun(@(x) sum(x==uni_idx),uni_idx)>1;
             unis = unique(stimuli(ridx,:),'rows');
+            %unis = stimulus.Clip & (aggr(stimulus.Clip, stimulus.Trial & key, 'count(*)->n') & 'n>1');
             
             % Subsample traces
             flip_times = cell2mat(flip_times(tidx & ridx));
@@ -176,7 +177,7 @@ classdef Repeats < dj.Computed
                 Stims{istim,2} = unis(istim,2);
                 k.movie_name = unimov{unis(istim,1)};
                 k.clip_number = unis(istim,2);
-                stim_trials = fetchn(trials*stimulus.Cond & k,'trial_idx');
+                stim_trials = fetchn(trials*stimulus.Clip & k,'trial_idx');
                 Data{istim} = permute(traces(:,:,ismember(trial_idxs(tidx & ridx),stim_trials)),[2 1 3]);
                 if ~isempty(rtraces)
                     rData{istim} = permute(rtraces(:,:,ismember(trial_idxs(tidx & ridx),stim_trials),:),[2 1 3 4]);
