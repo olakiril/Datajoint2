@@ -82,7 +82,7 @@ classdef Decode < dj.Computed
             end
             
             % get traces
-            [Traces, caTimes] = getAdjustedSpikes(fuse.ActivityTrace & key,'soma'); % [time cells]
+            [Traces, caTimes] = getAdjustedSpikes(fuse.ActivityTrace & (anatomy.AreaMembership & key),'soma'); % [time cells]
             
             % get rid of nans
             notnanidx = ~isnan(mean(Traces,2)); % faster than all
@@ -265,7 +265,7 @@ classdef Decode < dj.Computed
         function plotMasks(self,norm)
             
             % get data
-            [perf, area, cells] = fetchn(obj.Decode * aggr(obj.Decode, anatomy.AreaMembership, 'count(*)->n') & 'brain_area <> "unknown"','p','brain_area','n');
+            [perf, area, cells] = fetchn(self * aggr(obj.Decode, anatomy.AreaMembership, 'count(*)->n') & 'brain_area <> "unknown"','p','brain_area','n');
             areas = unique(area);
             MI = cell(size(areas));
             for iarea = 1:length(areas)
@@ -289,8 +289,8 @@ classdef Decode < dj.Computed
                             mi(iscan) = sum(sum(p.*log2(p./pij)));
                         end
                     end
-                    MI{iarea} = mi./double(cells(idx));
-                    %                    MI{iarea} = mi;
+%                     MI{iarea} = mi./double(cells(idx));
+                                       MI{iarea} = mi;
                 else
                     MI{iarea} = cellfun(@(x) nanmean(reshape(cellfun(@(xx) nanmean(xx(:)),x),[],1)), perf(idx));
                 end
