@@ -29,7 +29,7 @@ classdef Decode < dj.Computed
                 fetch1(obj.DecodeOpt & key,...
                 'decoder','k_fold','shuffle','train_set','test_set','repetitions','select_method');
             
-            [Traces, Stims, StimInfo] = getData(self,key); % [Cells, Obj, Trials]
+            [Traces, Stims, StimInfo, Unit_ids] = getData(self,key); % [Cells, Obj, Trials]
             [train_groups,test_groups] = getGroups(self,Stims,train_set,test_set);
             if ~isempty(test_groups)
                 train_sz = cell2mat(cellfun(@size,train_groups,'uni',0));
@@ -60,9 +60,12 @@ classdef Decode < dj.Computed
                     info.names{iGroup,iClass} = [StimInfo.names{stim_idx}];
                 end
                 
-                [P(iGroup,:), P_shfl(iGroup,:)]= ...
+                [P(iGroup,:), P_shfl(iGroup,:), unit_idx(iGroup,:)]= ...
                     decodeMulti(self,train_data,test_data,k_fold,shuffle,decoder,repetitions,select_method);
             end
+            
+            % find unit ids from randomization indexes
+            info.units = cellfun(@(x) cellfun(@(xx) Unit_ids(xx),x,'uni',0),unit_idx,'uni',0);
             
             % insert
             key.p = P;
@@ -75,14 +78,15 @@ classdef Decode < dj.Computed
     end
     
     methods
-        function [Data, Stims, info] = getData(self,key,bin)
+        function [Data, Stims, info, Unit_ids] = getData(self,key,bin)
             
             if nargin<3
                 bin = fetch1(obj.DecodeOpt & key, 'binsize');
             end
             
             % get traces
-            [Traces, caTimes] = getAdjustedSpikes(fuse.ActivityTrace & (anatomy.AreaMembership & key),'soma'); % [time cells]
+            [Traces, caTimes, keys] = getAdjustedSpikes(fuse.ActivityTrace & (anatomy.AreaMembership & key),'soma'); % [time cells]
+            Unit_ids = [keys.unit_id];
             
             % get rid of nans
             notnanidx = ~isnan(mean(Traces,2)); % faster than all
@@ -92,8 +96,12 @@ classdef Decode < dj.Computed
             % interpolate over time
             X = @(t) interp1(caTimes-caTimes(1), Traces, t, 'linear', 'extrap');  % traces indexed by time
             
-            % fetch stuff
-            [flip_times, trial_idxs] = fetchn(stimulus.Trial &  (stimulus.Clip & (stimulus.Movie & 'movie_class="object3d"')) & key,'flip_times','trial_idx');
+            % fetch stimuli without repeats
+            [flip_times, trial_idxs] = fetchn(...
+                stimulus.Trial &  ...
+                ((stimulus.Clip & (stimulus.Movie & 'movie_class="object3d"')) - ...
+                (aggr(stimulus.Clip , stimulus.Trial & key, 'count(*)->n') & 'n>1')) & key,...
+                'flip_times','trial_idx');
             ft_sz = cellfun(@(x) size(x,2),flip_times);
             tidx = ft_sz>=prctile(ft_sz,99);
             trial_idxs = trial_idxs(tidx);
@@ -149,7 +157,7 @@ classdef Decode < dj.Computed
             end
         end
         
-        function [PP, RR] = decodeMulti(obj,Data,test_Data,k_fold,shuffle,decoder,repetitions,select_method)
+        function [PP, RR, Cells] = decodeMulti(obj,Data,test_Data,k_fold,shuffle,decoder,repetitions,select_method)
             % performs a svm classification
             % data: {classes}[cells trials]
             % output: {classes}[reps trials]
@@ -158,12 +166,11 @@ classdef Decode < dj.Computed
             if nargin<4; k_fold = 10;end
             if nargin<3; test_Data = [];end
             
-            PP = cell(repetitions,1); RR = PP;
-            
+            PP = cell(repetitions,1); RR = PP;Cells = [];
             for irep = 1:repetitions
+
                 % initialize
                 groups = []; test_groups = []; train_idx = []; test_idx = [];
-                s = RandStream('mt19937ar','Seed','shuffle');
                 group_num = length(Data);
                 
                 % equalize by undersampling shorter class & randomize trial sequence
@@ -175,18 +182,19 @@ classdef Decode < dj.Computed
                 msz = bin_sz*bins;
                 
                 % undersample data
-                data = cellfun(@(x) x(:,randperm(s,size(x,2),msz)),Data,'uni',0);
+                rseed = RandStream('mt19937ar','Seed',irep);
+                data = cellfun(@(x) x(:,randperm(rseed,size(x,2),msz)),Data,'uni',0);
                 
                 % use data as test_data if not provided
                 if isempty(test_Data)
                     test_data = data;
-                    s.reset;
-                    data_idx = cellfun(@(x) randperm(s,size(x,2),msz),Data,'uni',0);% create bin index
+                    rseed.reset; % ensures same time randomization for index generation
+                    data_idx = cellfun(@(x) randperm(rseed,size(x,2),msz),Data,'uni',0);% create bin index
                 else % randomize trials
-                    s = RandStream('mt19937ar','Seed','shuffle');
-                    test_data = cellfun(@(x) x(:,randperm(s,size(x,2))),test_Data,'uni',0);
-                    s.reset;
-                    data_idx = cellfun(@(x) randperm(s,size(x,2)),test_Data,'uni',0);
+                    rseed2 = RandStream('mt19937ar','Seed',repetitions+irep);
+                    test_data = cellfun(@(x) x(:,randperm(rseed,size(x,2))),test_Data,'uni',0);
+                    rseed2.reset; % ensures same time randomization for index generation
+                    data_idx = cellfun(@(x) randperm(rseed2,size(x,2)),test_Data,'uni',0);
                 end
                 
                 % make group identities & build indexes
@@ -219,29 +227,34 @@ classdef Decode < dj.Computed
                 test_sz = size(test_data,2);
                 test_shfl_idx = 1:size(test_groups,2);
                 for ishuffle = 1:shuffle
-                    test_shfl_idx = test_shfl_idx(randperm(test_sz));
+                    test_shfl_idx = test_shfl_idx(randperm(rseed,test_sz));
                 end
                 test_shfl_groups = test_groups(test_shfl_idx);
                 data_shfl_idx = data_idx(test_shfl_idx);
                 
                 % get cell index
-                cell_idx = randperm(size(data,1));
-                if strcmp(select_method,'subsample')
-                    cell_num = 1:10:size(data,1);
-                else
-                    cell_num = size(data,1);
+                cell_idx = randperm(rseed,size(Data{1},1));
+                switch select_method
+                    case 'subsample'
+                        cell_num = tril(true(numel(cell_idx)),0);
+                        cell_num = cell_num([1 2.^(1:log2(numel(cell_idx)-1)) numel(cell_idx)],:);
+                    case 'all'
+                        cell_num = true(size(cell_idx));
+                    case 'single'
+                        cell_num = diag(true(size(cell_idx)));
+                    otherwise
+                        error('Cell selection method not supported')
                 end
                 
                 % classify
-                P = cellfun(@(x) nan(length(cell_num),size(x,2)),Data,'uni',0);R = P;
-                for icell = 1:length(cell_num)
-                    icelln = cell_num(icell);
+                P = cellfun(@(x) nan(size(cell_num,1),size(x,2)),Data,'uni',0);R = P;
+                for icell = 1:size(cell_num,1)
                     for ibin = 1:bins
                         idx = train_idx ~= ibin;
                         tidx = test_idx == ibin;
-                        DEC = feval(decoder,data(cell_idx(1:icelln),idx)', groups(idx)','learner','svm',...
+                        DEC = feval(decoder,data(cell_idx(cell_num(icell,:)),idx)', groups(idx)','learner','svm',...
                             'regularization','lasso','solver','sparsa');
-                        pre = predict(DEC,test_data(cell_idx(1:icelln),tidx)');
+                        pre = predict(DEC,test_data(cell_idx(cell_num(icell,:)),tidx)');
                         p =  (pre == test_groups(tidx)');
                         r =  (pre == test_shfl_groups(tidx)');
                         for igroup = 1:group_num
@@ -249,6 +262,7 @@ classdef Decode < dj.Computed
                             R{igroup}(icell,data_shfl_idx(tidx & test_shfl_groups==igroup)) = r(test_shfl_groups(tidx)==igroup);
                         end
                     end
+                    Cells{irep}{icell} = cell_idx(cell_num(icell,:));
                 end
                 PP{irep} = P;
                 RR{irep} = R;
@@ -289,8 +303,8 @@ classdef Decode < dj.Computed
                             mi(iscan) = sum(sum(p.*log2(p./pij)));
                         end
                     end
-%                     MI{iarea} = mi./double(cells(idx));
-                                       MI{iarea} = mi;
+                    MI{iarea} = mi./double(cells(idx));
+                    %                                        MI{iarea} = mi;
                 else
                     MI{iarea} = cellfun(@(x) nanmean(reshape(cellfun(@(xx) nanmean(xx(:)),x),[],1)), perf(idx));
                 end

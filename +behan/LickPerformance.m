@@ -57,7 +57,11 @@ classdef LickPerformance < dj.Computed
                 xlim([min(dn) max(dn)])
                 plot([min(dn) max(dn)],[1 1]*line,'-.','color',[0.5 0.5 0.5])
                 title(sprintf('Mouse ID: %d',mouse.animal_id))
-                %set(gca,'xtick',datenum(day),'XTickLabel',datestr(datevec(day),'mm-DD')),'XTickLabelRotation',45)
+                if imouse==length(allmice)
+                    set(gca,'XTickLabel',datestr(datevec(get(gca,'xtick')),'DD-mm'),'XTickLabelRotation',45)
+                else
+                    set(gca,'xticklabel',[])
+                end
             end
             
         end

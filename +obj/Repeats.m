@@ -19,167 +19,119 @@ classdef Repeats < dj.Computed
         
         function makeTuples(self, key)
             
-            tuple = key;
-            
+            % get parameters & data
+            disp 'fetching data ...'
             [method, shuffle] = fetch1(obj.RepeatsOpt & key,'method','shuffle');
+            [Data, Hashes, keys] = getData(self,key);
             
-            [Data,~,rData] = getData(self,key,[],shuffle); % [Cells, Time, Trials]
+            % insert
+            tuple = key;
+            self.insert(tuple)
             
-            switch method
-                case 'explainedVar'
-                    r = cell2mat(cellfun(@reliability,Data, mat2cell(ones(size(Data)),1,ones(size(Data))),'uni',0));
-                    parfor ishuffle = 1:shuffle
-                        r_shuffle(:,:,ishuffle) = cell2mat(cellfun(@reliability,cellfun(@(x) x(:,:,:,ishuffle),rData,'uni',0), mat2cell(ones(size(rData)),1,ones(size(rData))),'uni',0));
-                    end
-                    p_shuffle = nan(size(r));
-                    for i = 1:size(r,1)
-                        for y = 1:size(r,2)
-                            p_shuffle(i,y) = mean(r(i,y)<r_shuffle(i,y,:));
-                        end
-                    end
-                case 'corr'
-                    r = nan(size(Data{1},1),length(Data));
-                    for iobj = 1:length(Data)
-                        cor = nan(size(Data{iobj},1),1);
-                        for icell = 1:size(Data{iobj},1)
-                            traceZ = zscore(squeeze(Data{iobj}(icell,:,:)));
+            % initialize
+            disp 'computing reliabity ...'
+            import_keys = cell(size(Data,4),1);
+            rl_sh = cell(size(Data,4),1);
+            rl = cell(size(Data,4),1);
+            parfor icell = 1:size(Data,4)
+                % shuffling
+                cell_traces = Data(:,:,:,icell); %[trials time stim]
+                rand_idx = cell2mat(arrayfun(@(x) randperm(numel(cell_traces)),1:shuffle,'uni',0)');
+                r_cell_traces = reshape(cell_traces(rand_idx),[shuffle size(cell_traces)]);
+                clip_keys = [];
+                
+                for iclip = 1:size(cell_traces,3)
+                    trace = cell_traces(:,:,iclip); %[trials time]
+                    switch method
+                        case 'explainedVar'
+                            rl{icell} = var(nanmean(trace,2))/nanvar(trace(:));
+                            rl_sh{icell} = var(nanmean(r_cell_traces(:,:,:,iclip),3),[],2)/nanvar(trace(:));
+                        case 'corr'
+                            traceZ = zscore(trace);
+                            r_traceZ = permute(zscore(r_cell_traces(:,:,:,iclip),[],2),[2 3 1]);
                             c = corr(traceZ);
-                            cor(icell) = nanmean(c(logical(tril(ones(size(traceZ,2)),-1))));
-                        end
-                        r(:,iobj) = (cor);
-                    end
-                    r_shuffle = nan(size(Data{1},1),length(Data),shuffle);
-                    parfor ishuffle = 1:shuffle
-                        r_s = nan(size(rData{1},1),length(rData));
-                        for iobj = 1:length(rData)
-                            cor = nan(size(rData{iobj},1),1);
-                            for icell = 1:size(rData{iobj},1)
-                                traceZ = zscore(squeeze(rData{iobj}(icell,:,:,ishuffle)));
-                                c = corr(traceZ);
-                                cor(icell) = nanmean(c(logical(tril(ones(size(traceZ,2)),-1))));
+                            sel_idx = logical(tril(ones(size(traceZ,2)),-1));
+                            rl{icell} = nanmean(c(sel_idx));
+                            rh_sh{icell} = nan(shuffle,1);
+                            for i = 1:shuffle
+                                c = corr(r_traceZ(:,:,i));
+                                rh_sh{icell}(i) = nanmean(c(sel_idx));
                             end
-                            r_s(:,iobj) = (cor);
-                        end
-                        r_shuffle(:,:,ishuffle) = r_s;
-                    end
-                    p_shuffle = nan(size(r));
-                    for i = 1:size(r,1)
-                        for y = 1:size(r,2)
-                            p_shuffle(i,y) = mean(r(i,y)<r_shuffle(i,y,:));
-                        end
-                    end
-                    
-                case 'oracle'
-                    r = nan(size(Data{1},1),length(Data));
-                    for iobj = 1:length(Data)
-                        cor = nan(size(Data{iobj},1),1);
-                        for icell = 1:size(Data{iobj},1)
-                            traceZ = zscore(squeeze(single(Data{iobj}(icell,:,:))));
+                        case 'oracle'
+                            traceZ = zscore(trace);
+                            r_traceZ = zscore(r_cell_traces(:,:,:,iclip),[],2);
+                            c = nan(size(traceZ,2),1);r_c = nan(size(traceZ,2),shuffle);
                             for irep = 1:size(traceZ,2)
                                 idx = true(size(traceZ,2),1);
                                 idx(irep) = false;
                                 c(irep) = corr(traceZ(:,irep),mean(traceZ(:,idx),2));
+                                r_c(irep,:) = diag(corr(r_traceZ(:,:,irep)',mean(r_traceZ(:,:,idx),3)'));
                             end
-                            cor(icell) = nanmean(c);
-                        end
-                        r(:,iobj) = (cor);
+                            rl{icell} = nanmean(c);
+                            rl_sh{icell} = nanmean(r_c,2);
                     end
-                    r_shuffle = nan(size(Data{1},1),length(Data),shuffle);
-                    parfor ishuffle = 1:shuffle
-                        r_s = nan(size(rData{1},1),length(rData));
-                        for iobj = 1:length(rData)
-                            cor = nan(size(rData{iobj},1),1);
-                            for icell = 1:size(rData{iobj},1)
-                                traceZ = zscore(squeeze(rData{iobj}(icell,:,:,ishuffle)));
-                                c = nan(size(traceZ,2),1);
-                                for irep = 1:size(traceZ,2)
-                                    idx = true(size(traceZ,2),1);
-                                    idx(irep) = false;
-                                    c(irep) = corr(traceZ(:,irep),mean(traceZ(:,idx),2));
-                                end
-                                cor(icell) = nanmean(c);
-                            end
-                            r_s(:,iobj) = (cor);
-                        end
-                        r_shuffle(:,:,ishuffle) = r_s;
-                    end
-                    p_shuffle = nan(size(r));
-                    for i = 1:size(r,1)
-                        for y = 1:size(r,2)
-                            p_shuffle(i,y) = mean(r(i,y)<r_shuffle(i,y,:));
-                        end
-                    end
+                    
+                    % clear tuple
+                    tuple = keys(icell);
+                    tuple.rep_opt = key.rep_opt;
+                    tuple.condition_hash = Hashes(iclip).condition_hash;
+                    tuple.r = rl{icell};
+                    tuple.r_shuffle = mean(rl_sh{icell});
+                    tuple.p_shuffle = mean(rl_sh{icell}>rl{icell});
+                    clip_keys{iclip} = tuple;
+                end
+                import_keys{icell} = cell2mat(clip_keys);
             end
-            % insert
-            tuple.r = r;
-            tuple.r_shuffle = r_shuffle;
-            tuple.p_shuffle = p_shuffle;
-            self.insert(tuple)
             
+            % insert
+            disp 'Inserting ...'
+            for tuple = cell2mat(import_keys')
+                insert(obj.RepeatsUnit,tuple)
+            end
         end
     end
     
     methods
-        function [Data,Stims,rData] = getData(self,key,bin,shuffle) % {uni_stims}(cells,time,repeats)
+        function [Data,Hashes,keys] = getData(self,key,bin) % [time,repeats,uni_stims,cells]
             
             if nargin<3 || isempty(bin)
-                [bin] = fetch1(obj.RepeatsOpt & key, 'binsize');
+                bin = fetch1(obj.RepeatsOpt & key, 'binsize');
             end
             
             % get stuff
-            [Traces, caTimes] = getAdjustedSpikes(fuse.ActivityTrace & key,'soma'); % [time cells]
+            [Traces, caTimes, keys] = getAdjustedSpikes(fuse.ActivityTrace & key,'soma'); % [time cells]
+            Traces = single(Traces);
             trials = stimulus.Trial &  (stimulus.Clip & (stimulus.Movie & 'movie_class="object3d"')) & key;
-            [flip_times, trial_idxs, mov, clip] = (fetchn(trials * stimulus.Clip,'flip_times','trial_idx','movie_name','clip_number'));
+            [flip_times, cond_hash] = fetchn(...
+                trials * (stimulus.Clip & (aggr(stimulus.Clip, stimulus.Trial & key, 'count(*)->n') & 'n>1')),...
+                'flip_times','condition_hash');
             
             % filter out incomplete trials
             ft_sz = cellfun(@(x) size(x,2),flip_times);
             tidx = ft_sz>=prctile(ft_sz,99);
             
             % find repeated trials
-            unimov=unique(mov);
-            stim_index = repmat((1:length(unimov))',1,size(mov,1));
-            stim_index = stim_index(strcmp(repmat(unimov,1,size(mov,1)),repmat(mov',length(unimov),1)));
-            stimuli = [stim_index clip];
-            [~,~,uni_idx] = unique(stimuli,'rows');
-            ridx = arrayfun(@(x) sum(x==uni_idx),uni_idx)>1;
-            unis = unique(stimuli(ridx,:),'rows');
-            %unis = stimulus.Clip & (aggr(stimulus.Clip, stimulus.Trial & key, 'count(*)->n') & 'n>1');
+            [uni_hashes,~,uni_idx] = unique(cond_hash);
             
             % Subsample traces
-            flip_times = cell2mat(flip_times(tidx & ridx));
+            flip_times = cell2mat(flip_times(tidx));
             xm = min([length(caTimes) length(Traces)]);
             X = @(t) interp1(caTimes(1:xm)-caTimes(1), Traces(1:xm,:), t, 'linear', nan);  % traces indexed by time
             fps = 1/median(diff(flip_times(1,:)));
             d = max(1,round(bin/1000*fps));
             traces = convn(permute(X(flip_times - caTimes(1)),[2 3 1]),ones(d,1)/d,'same');
-            traces = uint16(normalize(traces(1:d:end,:,:))*double(intmax('uint16')));
-            
-            % randomize
-            if nargin>3 && shuffle
-                sz_data = size(traces);
-                rtraces = repmat(reshape(permute(traces,[2 1 3]),sz_data(2),[]),1,1,shuffle);
-                rtraces(:,:,1) = rtraces(:,randperm(size(rtraces,2)),1);
-                for i = 2:shuffle
-                    rtraces(:,:,i) = rtraces(:,randperm(size(rtraces,2)),i-1);
-                end
-                rtraces = permute(reshape(rtraces,size(rtraces,1),sz_data(1),sz_data(3),shuffle),[2 1 3 4]);
-            else
-                rtraces = [];
-            end
+            traces = traces(1:d:end,:,:);
             
             % split for unique stimuli
-            Data = [];k=[];Stims = [];rData = [];
-            for istim = 1:length(unis)
-                Stims{istim,1} = unimov{unis(istim,1)};
-                Stims{istim,2} = unis(istim,2);
-                k.movie_name = unimov{unis(istim,1)};
-                k.clip_number = unis(istim,2);
-                stim_trials = fetchn(trials*stimulus.Clip & k,'trial_idx');
-                Data{istim} = permute(traces(:,:,ismember(trial_idxs(tidx & ridx),stim_trials)),[2 1 3]);
-                if ~isempty(rtraces)
-                    rData{istim} = permute(rtraces(:,:,ismember(trial_idxs(tidx & ridx),stim_trials),:),[2 1 3 4]);
-                end
+            Data = [];Hashes = struct('condition_hash',[]);
+            for istim = unique(uni_idx)'
+                Hashes(istim).condition_hash = uni_hashes{istim};
+                Data{istim} = permute(traces(:,:,uni_idx==istim),[1 4 3 2]);
             end
+            
+            % equilize trials
+            Data = permute(cell2mat(cellfun(@(x) x(:,:,1:min(cellfun(@(x) size(x,3),Data)),:),Data,'uni',0)),[1 3 2 4]);
+            
         end
         
         function plot(obj,key,bin,varargin)
