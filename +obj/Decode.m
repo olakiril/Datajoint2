@@ -287,7 +287,7 @@ classdef Decode < dj.Computed
                 if nargin>1 && norm
                     mi = nan(length(idx),1);
                     for iscan = 1:length(idx)
-                        R = cell2mat(perf{idx(iscan)});
+                        R = cell2mat(reshape(perf{idx(iscan)},1,[]));
                         CM = nan(2,2);
                         CM([1 4]) = nansum(R(:)==1);
                         CM([2 3]) = nansum(R(:)==0);
@@ -303,8 +303,8 @@ classdef Decode < dj.Computed
                             mi(iscan) = sum(sum(p.*log2(p./pij)));
                         end
                     end
-                    MI{iarea} = mi./double(cells(idx));
-                    %                                        MI{iarea} = mi;
+                    %MI{iarea} = mi./double(cells(idx));
+                                                            MI{iarea} = mi;
                 else
                     MI{iarea} = cellfun(@(x) nanmean(reshape(cellfun(@(xx) nanmean(xx(:)),x),[],1)), perf(idx));
                 end

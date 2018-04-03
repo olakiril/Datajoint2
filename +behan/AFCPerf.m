@@ -1,5 +1,5 @@
 %{
-# Performance with GonoGo tasks for each day
+# Performance with 2AFC tasks for each day
 ->beh.Session
 day                   : timestamp                      # day starts at 12AM
 ---
@@ -13,54 +13,39 @@ perf                  : float                          # performance (HITS + CR/
 dconf                 : float                          # 95% d' Confidence
 %}
 
-classdef LickPerformance < dj.Computed
+classdef AFCPerf < dj.Computed
     properties
-        keySource = beh.Session & (beh.RewardCond & 'probe=0') & (beh.RewardCond & 'probe>0') & (beh.MovieClipCond & ...
-            'movie_name="obj1v5" OR movie_name="obj2v5" OR movie_name="obj3v5" OR movie_name="obj3v5"') & 'animal_id>0'
+        keySource = beh.Session & (beh.RewardCond & 'probe=1') & (beh.RewardCond & 'probe=2') & (beh.MovieClipCond & ...
+            'movie_name="obj1v4" OR movie_name="obj2v4" OR movie_name="obj3v4" OR movie_name="obj3v4"') & 'animal_id>0'
     end
     
     methods
-        function update(self)
-            % get current sessions for all running animals
-            mice = fetch(beh.SetupInfo & 'animal_id>0','animal_id');
-            for mouse = mice'
-                session_key = fetch(beh.Session & sprintf('session_id = %d',max(fetchn(self & mouse,'session_id'))) & mouse);
-                % if exists delete
-                if exists(self & session_key)
-                    delQuick(self & session_key)
-                    populate(self,session_key)
-                end
-            end
-        end
         
         function plot(self, type)
             
             figure
-            
             if nargin<2; type = 'perf';end
-            
-           
             
             allmice = fetch(mice.Mice & self);
             sh = nan(length(allmice),1);
             for imouse =1:length(allmice)
                 mouse = allmice(imouse);
                 sh(imouse) = subplot(ceil(sqrt(length(allmice))),ceil(sqrt(length(allmice))),imouse);
-                 switch type
-                case 'perf'
-                    [ht,fa,ms,cr,days] = fetchn(self & mouse,'ht','fa','ms','cr','day');
-                    day = unique(days);
-                    val = nan(length(day),1);
-                    for iday = 1:length(day)
-                       idx = strcmp(days,day{iday});
-                       val(iday) = (sum(ht(idx))+sum(cr(idx)))/sum(sum(ht(idx))+sum(fa(idx))+sum(ms(idx))+sum(cr(idx)));
-                    end
-                    line = 0.5;
-                case 'dprime'
-                    line = 0;
+                switch type
+                    case 'perf'
+                        [ht,fa,ms,cr,days] = fetchn(self & mouse,'ht','fa','ms','cr','day');
+                        day = unique(days);
+                        val = nan(length(day),1);
+                        for iday = 1:length(day)
+                            idx = strcmp(days,day{iday});
+                            val(iday) = (sum(ht(idx))+sum(cr(idx)))/sum(sum(ht(idx))+sum(fa(idx))+sum(ms(idx))+sum(cr(idx)));
+                        end
+                        line = 0.5;
+                    case 'dprime'
+                        line = 0;
                         [val,day] = fetchn(self & mouse,'dprime','day');
-                 end
-
+                end
+                
                 dn = datetime(day);
                 plot(dn,val)
                 hold on
@@ -68,7 +53,7 @@ classdef LickPerformance < dj.Computed
                 plot([min(dn) max(dn)],[1 1]*line,'-.','color',[0.5 0.5 0.5])
                 title(sprintf('Mouse ID: %d',mouse.animal_id))
                 if imouse==length(allmice)
-%                     set(gca,'xtick',min(dn):2:max(dn),'XTickLabel',datestr(datevec(min(dn):2:max(dn)),'DD-mm'),'XTickLabelRotation',45)
+                    %                     set(gca,'xtick',min(dn):2:max(dn),'XTickLabel',datestr(datevec(min(dn):2:max(dn)),'DD-mm'),'XTickLabelRotation',45)
                     %set(gca,'xtick',min(dn):max(dn))
                     %datetick('x','dd-mm','keepticks','keeplimits')
                     xtickformat('dd-MM')
@@ -93,12 +78,12 @@ classdef LickPerformance < dj.Computed
             % start day at 12AM
             [days, IA, IC]= unique(floor(start_times/1000/3600/24 + session_times),'rows');
             
-            % remove today 
+            % remove today
             [~, idx] = intersect(days,round(now));
             if ~isempty(idx); IC = IC(IC~=IA(idx)); days = days(IA~=IA(idx));end
             
             % fetch lick times
-            ltimes =(fetchn(beh.Lick & key,'time','ORDER BY time'));
+            [ltimes, lprobe] =(fetchn(beh.Lick & key,'time','probe','ORDER BY time'));
             
             % loop through all days of the session
             for iday = unique(IC)'
@@ -108,35 +93,44 @@ classdef LickPerformance < dj.Computed
                 tuple.day = datestr(days(iday),'YYYY-mm-dd HH:MM:SS');
                 
                 % seperate target and distructor trials
-                TARGET_idx = rprobe(IC==iday)>0;
-                DISTR_idx = rprobe(IC==iday)==0;
+                TARGET_idx = rprobe(IC==iday)==1;
+                DISTR_idx = rprobe(IC==iday)==2;
                 TARGET_sum = sum(TARGET_idx);
                 DISTR_sum = sum(DISTR_idx);
-                day_start = start_times(IC==iday);
-                day_end = end_times(IC==iday);
+                trial_start_times = start_times(IC==iday);
+                trial_end_times = end_times(IC==iday);
+                rew_probe = rprobe(IC==iday);
                 
                 % disregard day with very few trials
                 if (TARGET_sum + DISTR_sum) < 20; continue; end
                 
                 % calculate start and stop times
-                day_lick_times = ltimes(ltimes>min(day_start) & ltimes<max(day_end));
-                day_resp = false(1,length(day_start));
-                for itrial = 1:length(day_start)
-                    day_resp(itrial) = any(day_lick_times>=day_start(itrial) & day_lick_times<day_end(itrial));
+                restr_idx = ltimes>min(trial_start_times) & ltimes<max(trial_end_times);
+                day_probe = lprobe(restr_idx);
+                day_lick_times = ltimes(restr_idx);
+                day_resp = zeros(length(trial_start_times),1);
+                for itrial = 1:length(trial_start_times)
+                    %                    day_resp(itrial) = any(day_lick_times>=trial_start_times(itrial) & day_lick_times<trial_end_times(itrial));
+                    resp = day_probe(find(day_lick_times>=trial_start_times(itrial) & day_lick_times<trial_end_times(itrial),1,'first'));
+                    %resp = lprobe(find(day_lick_times>=trial_start_times(itrial) & day_lick_times<trial_start_times(itrial)+170,1,'first'));
+
+                    if ~isempty(resp)
+                        day_resp(itrial) = resp;
+                    end
                 end
                 
                 % compute correct and wrong lick probabilities
-                HT_rate = sum(day_resp(TARGET_idx))/TARGET_sum; %  p(lick|target)
-                FA_rate = sum(day_resp(DISTR_idx))/DISTR_sum; %  p(lick|distractor)
-                tuple.ht = sum(day_resp(TARGET_idx));
-                tuple.fa = sum(day_resp(DISTR_idx));
-                tuple.ms = TARGET_sum - sum(day_resp(TARGET_idx));
-                tuple.cr = DISTR_sum - sum(day_resp(DISTR_idx));
+                HT_rate = sum(day_resp==1 & rew_probe==1)/TARGET_sum; %  p(lick|target)
+                FA_rate = sum(day_resp==1 & rew_probe==2)/DISTR_sum; %  p(lick|distractor)
+                tuple.ht = sum(day_resp==1 & rew_probe==1);
+                tuple.fa = sum(day_resp==1 & rew_probe==2);
+                tuple.ms = TARGET_sum - sum(day_resp==1 & rew_probe==1);
+                tuple.cr = DISTR_sum - sum(day_resp==1 & rew_probe==2);
                 
                 % bootstrap licks
-                rResp = cell2mat(arrayfun(@(x) day_resp(randperm(end)),1:1000,'uni',0)');
-                r_HIT = sum(rResp(:,TARGET_idx),2)./TARGET_sum;
-                r_FA = sum(rResp(:,DISTR_idx),2)./DISTR_sum;
+                rResp = cell2mat(arrayfun(@(x) day_resp(randperm(end))',1:1000,'uni',0)');
+                r_HIT = sum(rResp(:,TARGET_idx & rew_probe==1),2)>0./TARGET_sum;
+                r_FA = sum(rResp(:,DISTR_idx & rew_probe==2),2)>0./DISTR_sum;
                 tuple.pval = 1 - mean(r_HIT-r_FA<HT_rate-FA_rate);
                 
                 % calculate metrics
@@ -144,9 +138,9 @@ classdef LickPerformance < dj.Computed
                 zF = norminv(min([max([FA_rate 0.01^40]) 0.99^40]),0,1);
                 vH = HT_rate * (1-HT_rate) / (TARGET_sum*exp(-zH*zH/2)^2/(2*pi));
                 vF = FA_rate * (1-FA_rate) / (DISTR_sum*exp(-zF*zF/2)^2/(2*pi));
-                tuple.dprime = (zH - zF);
+                tuple.dprime = (zH - zF)/sqrt(2);
                 tuple.perf = (tuple.ht + tuple.cr)/(TARGET_sum + DISTR_sum);
-                tuple.dconf = 1.96*sqrt(vH+vF)/(2);
+                tuple.dconf = 1.96*sqrt(vH+vF)/sqrt(2);
                 
                 % insert
                 insert(self,tuple)
