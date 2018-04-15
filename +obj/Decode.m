@@ -10,6 +10,7 @@ p_shuffle             : longblob                      # chance performance
 train_groups          : longblob                      # train group info
 test_groups           : longblob                      # test group info
 trial_info            : longblob                      # trial info [index, clip #, movie, bin #]
+score                 : longblob                      # svm score (distance to boundary)
 %}
 
 classdef Decode < dj.Computed
@@ -38,7 +39,7 @@ classdef Decode < dj.Computed
             end
             
             % run the decoding
-            P = cell(length(train_groups),length(train_groups{1})); P_shfl = P;
+            P = cell(length(train_groups),length(train_groups{1})); P_shfl = P;score = P;
             for iGroup = 1:length(train_groups)
                 train_data = [];test_data = [];
                 for iClass = 1:length(train_groups{iGroup})
@@ -60,7 +61,7 @@ classdef Decode < dj.Computed
                     info.names{iGroup,iClass} = [StimInfo.names{stim_idx}];
                 end
                 
-                [P(iGroup,:), P_shfl(iGroup,:), unit_idx(iGroup,:)]= ...
+                [P(iGroup,:), P_shfl(iGroup,:), unit_idx(iGroup,:), score(iGroup,:)]= ...
                     decodeMulti(self,train_data,test_data,k_fold,shuffle,decoder,repetitions,select_method);
             end
             
@@ -73,6 +74,7 @@ classdef Decode < dj.Computed
             key.train_groups = train_groups;
             key.test_groups = test_groups;
             key.trial_info = info;
+            key.score = score;
             self.insert(key)
         end
     end
@@ -157,7 +159,7 @@ classdef Decode < dj.Computed
             end
         end
         
-        function [PP, RR, Cells] = decodeMulti(obj,Data,test_Data,k_fold,shuffle,decoder,repetitions,select_method)
+        function [PP, RR, Cells, SC] = decodeMulti(obj,Data,test_Data,k_fold,shuffle,decoder,repetitions,select_method)
             % performs a svm classification
             % data: {classes}[cells trials]
             % output: {classes}[reps trials]
@@ -166,9 +168,9 @@ classdef Decode < dj.Computed
             if nargin<4; k_fold = 10;end
             if nargin<3; test_Data = [];end
             
-            PP = cell(repetitions,1); RR = PP;Cells = [];
+            PP = cell(repetitions,1); RR = PP;Cells = [];SC = PP;
             for irep = 1:repetitions
-
+                
                 % initialize
                 groups = []; test_groups = []; train_idx = []; test_idx = [];
                 group_num = length(Data);
@@ -247,25 +249,27 @@ classdef Decode < dj.Computed
                 end
                 
                 % classify
-                P = cellfun(@(x) nan(size(cell_num,1),size(x,2)),Data,'uni',0);R = P;
+                P = cellfun(@(x) nan(size(cell_num,1),size(x,2)),Data,'uni',0);R = P;S = P;
                 for icell = 1:size(cell_num,1)
                     for ibin = 1:bins
                         idx = train_idx ~= ibin;
                         tidx = test_idx == ibin;
                         DEC = feval(decoder,data(cell_idx(cell_num(icell,:)),idx)', groups(idx)','learner','svm',...
                             'regularization','lasso','solver','sparsa');
-                        pre = predict(DEC,test_data(cell_idx(cell_num(icell,:)),tidx)');
+                        [pre, sc] = predict(DEC,test_data(cell_idx(cell_num(icell,:)),tidx)');
                         p =  (pre == test_groups(tidx)');
                         r =  (pre == test_shfl_groups(tidx)');
                         for igroup = 1:group_num
                             P{igroup}(icell,data_idx(tidx & test_groups==igroup)) = p(test_groups(tidx)==igroup);
                             R{igroup}(icell,data_shfl_idx(tidx & test_shfl_groups==igroup)) = r(test_shfl_groups(tidx)==igroup);
+                            S{igroup}(icell,data_idx(tidx & test_groups==igroup)) = sc(test_groups(tidx)==igroup,1);
                         end
                     end
                     Cells{irep}{icell} = cell_idx(cell_num(icell,:));
                 end
                 PP{irep} = P;
                 RR{irep} = R;
+                SC{irep} = S;
             end
             
             % convert {reps}{obj}[cells trials] to {obj}[reps trials cells]
@@ -273,6 +277,9 @@ classdef Decode < dj.Computed
                 length(Data),repetitions),[2 1]),'uni',0),repetitions,ones(1,length(Data))),'uni',0);
             RR = cellfun(@cell2mat,mat2cell(cellfun(@(x) permute(x,[3 2 1]),permute(reshape([RR{:}],...
                 length(Data),repetitions),[2 1]),'uni',0),repetitions,ones(1,length(Data))),'uni',0);
+            SC = cellfun(@cell2mat,mat2cell(cellfun(@(x) permute(x,[3 2 1]),permute(reshape([SC{:}],...
+                length(Data),repetitions),[2 1]),'uni',0),repetitions,ones(1,length(Data))),'uni',0);
+            
             
         end
         
@@ -304,7 +311,7 @@ classdef Decode < dj.Computed
                         end
                     end
                     %MI{iarea} = mi./double(cells(idx));
-                                                            MI{iarea} = mi;
+                    MI{iarea} = mi;
                 else
                     MI{iarea} = cellfun(@(x) nanmean(reshape(cellfun(@(xx) nanmean(xx(:)),x),[],1)), perf(idx));
                 end
