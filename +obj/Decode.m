@@ -249,7 +249,7 @@ classdef Decode < dj.Computed
                 end
                 
                 % classify
-                P = cellfun(@(x) nan(size(cell_num,1),size(x,2)),Data,'uni',0);R = P;S = P;
+                P = cellfun(@(x) nan(size(cell_num,1),size(x,2),'single'),Data,'uni',0);R = P;S = P;
                 for icell = 1:size(cell_num,1)
                     for ibin = 1:bins
                         idx = train_idx ~= ibin;
