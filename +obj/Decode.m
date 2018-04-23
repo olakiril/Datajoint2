@@ -170,7 +170,9 @@ classdef Decode < dj.Computed
                 'decoder','k_fold','shuffle','repetitions','select_method');
             
             PP = cell(repetitions,1); RR = PP;Cells = [];SC = PP;
+            fprintf('Rep:')
             for irep = 1:repetitions
+                fprintf(' #%d ',irep)
                 
                 % initialize
                 groups = []; test_groups = []; train_idx = []; test_idx = [];
