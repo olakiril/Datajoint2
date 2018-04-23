@@ -26,10 +26,10 @@ classdef Decode < dj.Computed
     methods(Access=protected)
         function makeTuples(self, key)
             
-            [decoder,k_fold,shuffle,train_set,test_set,repetitions,select_method] = ...
-                fetch1(obj.DecodeOpt & key,...
-                'decoder','k_fold','shuffle','train_set','test_set','repetitions','select_method');
+            % get train & test groups
+            [train_set,test_set] = fetch1(obj.DecodeOpt & key,'train_set','test_set');
             
+            % get DAta
             [Traces, Stims, StimInfo, Unit_ids] = getData(self,key); % [Cells, Obj, Trials]
             [train_groups,test_groups] = getGroups(self,Stims,train_set,test_set);
             if ~isempty(test_groups)
@@ -62,7 +62,7 @@ classdef Decode < dj.Computed
                 end
                 
                 [P(iGroup,:), P_shfl(iGroup,:), unit_idx(iGroup,:), score(iGroup,:)]= ...
-                    decodeMulti(self,train_data,test_data,k_fold,shuffle,decoder,repetitions,select_method);
+                    decodeMulti(self, train_data, test_data, key, Unit_ids);
             end
             
             % find unit ids from randomization indexes
@@ -159,14 +159,15 @@ classdef Decode < dj.Computed
             end
         end
         
-        function [PP, RR, Cells, SC] = decodeMulti(obj,Data,test_Data,k_fold,shuffle,decoder,repetitions,select_method)
+        function [PP, RR, Cells, SC] = decodeMulti(self,Data,test_Data, key, unit_ids)
             % performs a svm classification
             % data: {classes}[cells trials]
             % output: {classes}[reps trials]
             
-            if nargin<5; shuffle = 0;end
-            if nargin<4; k_fold = 10;end
-            if nargin<3; test_Data = [];end
+            % get decoder parameters
+            [decoder,k_fold,shuffle,repetitions,select_method] = ...
+                fetch1(obj.DecodeOpt & key,...
+                'decoder','k_fold','shuffle','repetitions','select_method');
             
             PP = cell(repetitions,1); RR = PP;Cells = [];SC = PP;
             for irep = 1:repetitions
@@ -244,6 +245,21 @@ classdef Decode < dj.Computed
                         cell_num = true(size(cell_idx));
                     case 'single'
                         cell_num = diag(true(size(cell_idx)));
+                    case 'rf'
+                        % get all rfs to compute center 
+                        [x,y] = getDegrees(tune.DotRFMap & (fuse.ScanDone & key) & 'p_value<0.05',1);
+                        mx = mean(x);
+                        my = mean(y);
+                        [x,y, keys] = getDegrees(tune.DotRFMap & (fuse.ScanDone & key) & 'p_value<0.05' & (anatomy.AreaMembership & key),1);
+                        idx = (mx-10)<x & x<(mx+10) & (my-10)<y & y<(my+10);
+                        sel_units = [keys(idx).unit_id];
+                        [~,unit_idx] = intersect(unit_ids(cell_idx),sel_units);
+                        indexes = [1 10:10:length(unit_idx) length(unit_idx)];
+                        cell_num = false(length(indexes),numel(cell_idx));
+                        for i = 1:length(indexes)
+                           cell_num(i,unit_idx(1:indexes(i))) = true;
+                        end
+                       
                     otherwise
                         error('Cell selection method not supported')
                 end
@@ -283,10 +299,11 @@ classdef Decode < dj.Computed
             
         end
         
-        function plotMasks(self,norm)
+        function plotMasks(self,norm,target_cell_num)
             
             % get data
-            [perf, area, cells] = fetchn(self * aggr(obj.Decode, anatomy.AreaMembership, 'count(*)->n') & 'brain_area <> "unknown"','p','brain_area','n');
+            [perf, area, cells, trial_info] = fetchn(self * aggr(obj.Decode, anatomy.AreaMembership, 'count(*)->n') & 'brain_area <> "unknown"',...
+                'p','brain_area','n','trial_info');
             areas = unique(area);
             MI = cell(size(areas));
             for iarea = 1:length(areas)
@@ -295,6 +312,11 @@ classdef Decode < dj.Computed
                     mi = nan(length(idx),1);
                     for iscan = 1:length(idx)
                         R = cell2mat(reshape(perf{idx(iscan)},1,[]));
+                        if nargin>2
+                            cellnum = cellfun(@length,trial_info{idx(iscan)}.units{1});
+                            cell_idx = find(cellnum>=target_cell_num,1,'first');
+                            R = R(:,:,cell_idx);
+                        end
                         CM = nan(2,2);
                         CM([1 4]) = nansum(R(:)==1);
                         CM([2 3]) = nansum(R(:)==0);
@@ -302,7 +324,7 @@ classdef Decode < dj.Computed
                         pi = sum(CM,2)/sum(CM(:));
                         pj = sum(CM,1)/sum(CM(:));
                         pij = pi*pj;
-                        if sum(CM([2 3])) == 0
+                        if sum(CM([2 3])) == 0 && numel(R)>0
                             mi(iscan) = 1;
                         elseif sum(CM([1 4])) == 0
                             mi(iscan) = 0;
@@ -313,7 +335,9 @@ classdef Decode < dj.Computed
                     %MI{iarea} = mi./double(cells(idx));
                     MI{iarea} = mi;
                 else
-                    MI{iarea} = cellfun(@(x) nanmean(reshape(cellfun(@(xx) nanmean(xx(:)),x),[],1)), perf(idx));
+                    if nargin>2 && target_cell_num>cells(idx)
+                        MI{iarea} = cellfun(@(x) nanmean(reshape(cellfun(@(xx) double(nanmean(xx(:))),x),[],1)), perf(idx));
+                    end
                 end
             end
             
