@@ -262,7 +262,8 @@ classdef Decode < dj.Computed
                         idx = (mx-10)<x & x<(mx+10) & (my-10)<y & y<(my+10);
                         sel_units = [keys(idx).unit_id];
                         [~,unit_idx] = intersect(unit_ids(cell_idx),sel_units);
-                        indexes = [1 10:10:99 100:100:length(unit_idx) length(unit_idx)];
+                        %indexes = [1 10:10:99 100:100:length(unit_idx) length(unit_idx)];
+                        indexes = 50;
                         cell_num = false(length(indexes),numel(cell_idx));
                         for i = 1:length(indexes)
                            cell_num(i,unit_idx(1:indexes(i))) = true;
