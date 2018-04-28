@@ -80,11 +80,12 @@ classdef Decode < dj.Computed
     end
     
     methods
-        function [Data, Stims, info, Unit_ids] = getData(self,key,bin)
+        function [Data, Stims, info, Unit_ids] = getData(self,key,bin,stim_split)
             
             if nargin<3
                 bin = fetch1(obj.DecodeOpt & key, 'binsize');
             end
+
             
             % get traces
             [Traces, caTimes, keys] = getAdjustedSpikes(fuse.ActivityTrace & (anatomy.AreaMembership & key),'soma'); % [time cells]
@@ -116,18 +117,23 @@ classdef Decode < dj.Computed
             Traces = convn(permute(X(flip_times - caTimes(1)),[2 3 1]),ones(d,1)/d,'same');
             Traces = permute(Traces(1:d:end,:,:),[2 1 3]); % in [cells bins trials]
             
-            % split for unique stimuli
-            for istim = 1:length(Stims)
-                [s_trials,s_clips,s_names] = fetchn(stimulus.Trial * stimulus.Clip & ...
-                    sprintf('movie_name = "%s"',Stims{istim}) & key, 'trial_idx','clip_number','movie_name');
-                [tr_idx, b]= ismember(trial_idxs,s_trials);
-                st_idx = b(b>0);
-                dat = Traces(:,:,tr_idx);
-                info.bins{istim} = reshape(repmat(1:size(dat,2),size(dat,3),1)',[],1);
-                info.trials{istim} = reshape(repmat(s_trials(st_idx),1,size(dat,2))',[],1);
-                info.clips{istim} = reshape(repmat(s_clips(st_idx),1,size(dat,2))',[],1);
-                info.names{istim} = reshape(repmat(s_names(st_idx),1,size(dat,2))',[],1);
-                Data{istim} = reshape(dat,size(Traces,1),[]);
+            if nargin>3 && stim_split 
+                Data = Traces;
+                info = [];
+            else
+                % split for unique stimuli
+                for istim = 1:length(Stims)
+                    [s_trials,s_clips,s_names] = fetchn(stimulus.Trial * stimulus.Clip & ...
+                        sprintf('movie_name = "%s"',Stims{istim}) & key, 'trial_idx','clip_number','movie_name');
+                    [tr_idx, b]= ismember(trial_idxs,s_trials);
+                    st_idx = b(b>0);
+                    dat = Traces(:,:,tr_idx);
+                    info.bins{istim} = reshape(repmat(1:size(dat,2),size(dat,3),1)',[],1);
+                    info.trials{istim} = reshape(repmat(s_trials(st_idx),1,size(dat,2))',[],1);
+                    info.clips{istim} = reshape(repmat(s_clips(st_idx),1,size(dat,2))',[],1);
+                    info.names{istim} = reshape(repmat(s_names(st_idx),1,size(dat,2))',[],1);
+                    Data{istim} = reshape(dat,size(Traces,1),[]);
+                end
             end
         end
         
@@ -195,7 +201,7 @@ classdef Decode < dj.Computed
                     test_data = data;
                     rseed.reset; % ensures same time randomization for index generation
                     data_idx = cellfun(@(x) randperm(rseed,size(x,2),msz),Data,'uni',0);% create bin index
-                else % randomize trials
+                else % randomize trials 
                     rseed2 = RandStream('mt19937ar','Seed',repetitions+irep);
                     test_data = cellfun(@(x) x(:,randperm(rseed,size(x,2))),test_Data,'uni',0);
                     rseed2.reset; % ensures same time randomization for index generation
@@ -272,8 +278,7 @@ classdef Decode < dj.Computed
                     for ibin = 1:bins
                         idx = train_idx ~= ibin;
                         tidx = test_idx == ibin;
-                        DEC = feval(decoder,data(cell_idx(cell_num(icell,:)),idx)', groups(idx)','learner','svm',...
-                            'regularization','lasso','solver','sparsa');
+                        DEC = feval(decoder,data(cell_idx(cell_num(icell,:)),idx)', groups(idx)',params);
                         [pre, sc] = predict(DEC,test_data(cell_idx(cell_num(icell,:)),tidx)');
                         p =  (pre == test_groups(tidx)');
                         r =  (pre == test_shfl_groups(tidx)');
@@ -304,13 +309,14 @@ classdef Decode < dj.Computed
         function plotMasks(self,norm,target_cell_num)
             
             % get data
-            [perf, area, cells, trial_info] = fetchn(self * aggr(obj.Decode, anatomy.AreaMembership, 'count(*)->n') & 'brain_area <> "unknown"',...
-                'p','brain_area','n','trial_info');
+            [perf, area, trial_info] = fetchn(self & 'brain_area <> "unknown"',...
+                'p','brain_area','trial_info');
             areas = unique(area);
             MI = cell(size(areas));
             for iarea = 1:length(areas)
                 idx = find(strcmp(area,areas(iarea)));
                 if nargin>1 && norm
+                    labl = 'Mutual Information (bits)';
                     mi = nan(length(idx),1);
                     for iscan = 1:length(idx)
                         R = cell2mat(reshape(perf{idx(iscan)},1,[]));
@@ -337,9 +343,21 @@ classdef Decode < dj.Computed
                     %MI{iarea} = mi./double(cells(idx));
                     MI{iarea} = mi;
                 else
-                    if nargin>2 && target_cell_num>cells(idx)
-                        MI{iarea} = cellfun(@(x) nanmean(reshape(cellfun(@(xx) double(nanmean(xx(:))),x),[],1)), perf(idx));
-                    end
+                    labl = 'Classification performance (%)';
+                      mi = nan(length(idx),1);
+                     for iscan = 1:length(idx)
+                        R = cell2mat(reshape(perf{idx(iscan)},1,[]));
+                        if nargin>2
+                            cellnum = cellfun(@length,trial_info{idx(iscan)}.units{1});
+                            cell_idx = find(cellnum>=target_cell_num,1,'first');
+                            R = R(:,:,cell_idx);
+                        end
+                        mi(iscan) = nanmean(R(:));
+                     end
+                     MI{iarea} = mi;
+%                     if nargin>2 && target_cell_num>cells(idx)
+%                         MI{iarea} = cellfun(@(x) nanmean(reshape(cellfun(@(xx) double(nanmean(xx(:))),x),[],1)), perf(idx));
+%                     end
                 end
             end
             
@@ -349,8 +367,7 @@ classdef Decode < dj.Computed
             plotMask(anatomy.Masks)
             colormap parula
             c = colorbar;
-            name = 'Classification performance (%)';
-            ylabel(c,name,'Rotation',-90,'VerticalAlignment','baseline')
+            ylabel(c,labl,'Rotation',-90,'VerticalAlignment','baseline')
             
             
             mx = max(cellfun(@nanmean,MI));
