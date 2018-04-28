@@ -279,7 +279,7 @@ classdef Decode < dj.Computed
                     for ibin = 1:bins
                         idx = train_idx ~= ibin;
                         tidx = test_idx == ibin;
-                        DEC = feval(decoder,data(cell_idx(cell_num(icell,:)),idx)', groups(idx)',params);
+                        DEC = feval(decoder,data(cell_idx(cell_num(icell,:)),idx)', groups(idx)');
                         [pre, sc] = predict(DEC,test_data(cell_idx(cell_num(icell,:)),tidx)');
                         p =  (pre == test_groups(tidx)');
                         r =  (pre == test_shfl_groups(tidx)');
