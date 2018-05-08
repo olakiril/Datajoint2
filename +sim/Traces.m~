@@ -1,0 +1,18 @@
+%{
+->sim.TraceParams       : smallint unsigned      #
+->sim.RFParams
+->stimulus.Movie
+trace_id                          : smallint
+---
+trace                             : mediumblob                            #
+%}
+
+
+classdef Traces < dj.Manual
+    properties
+    end
+    
+    methods
+    end
+end
+

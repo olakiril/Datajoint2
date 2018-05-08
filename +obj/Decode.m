@@ -104,7 +104,7 @@ classdef Decode < dj.Computed
                 stimulus.Trial &  ...
                 ((stimulus.Clip & (stimulus.Movie & 'movie_class="object3d"')) - ...
                 (aggr(stimulus.Clip , stimulus.Trial & key, 'count(*)->n') & 'n>1')) & key,...
-                'flip_times','trial_idx');
+                'flip_times','trial_idx','ORDER BY trial_idx');
             ft_sz = cellfun(@(x) size(x,2),flip_times);
             tidx = ft_sz>=prctile(ft_sz,99);
             trial_idxs = trial_idxs(tidx);
@@ -112,10 +112,14 @@ classdef Decode < dj.Computed
             Stims = unique(fetchn(stimulus.Clip &  (stimulus.Trial & key),'movie_name'));
             
             % subsample traces
-            fps = 1/median(diff(flip_times(1,:)));
-            d = max(1,round(bin/1000*fps));
-            Traces = convn(permute(X(flip_times - caTimes(1)),[2 3 1]),ones(d,1)/d,'same');
-            Traces = permute(Traces(1:d:end,:,:),[2 1 3]); % in [cells bins trials]
+            Traces = permute(X(flip_times - caTimes(1)),[2 3 1]);
+            if bin>0
+                 fps = 1/median(diff(flip_times(1,:)));
+                 d = max(1,round(bin/1000*fps));
+                 Traces = convn(Traces,ones(d,1)/d,'same');
+                 Traces = Traces(1:d:end,:,:);
+            end
+            Traces = permute(Traces,[2 1 3]); % in [cells bins trials]
             
             if nargin>3 && stim_split 
                 Data = Traces;
