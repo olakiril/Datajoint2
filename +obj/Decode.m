@@ -55,10 +55,11 @@ classdef Decode < dj.Computed
                             repmat(Stims,1,size(tgroup,2)))',1);
                         test_data{iClass} = cell2mat(Traces(stim_idx));
                     end
-                    info.bins{iGroup,iClass} = cell2mat(StimInfo.bins(stim_idx));
-                    info.trials{iGroup,iClass} = cell2mat(StimInfo.trials(stim_idx));
-                    info.clips{iGroup,iClass} = cell2mat(StimInfo.clips(stim_idx));
-                    info.names{iGroup,iClass} = [StimInfo.names{stim_idx}];
+                    info.bins{iGroup,iClass} = cell2mat(reshape(StimInfo.bins(stim_idx),[],1));
+                    info.trials{iGroup,iClass} = cell2mat(reshape(StimInfo.trials(stim_idx),[],1));
+                    info.clips{iGroup,iClass} = cell2mat(reshape(StimInfo.clips(stim_idx),[],1));
+                    names = cellfun(@(x) reshape(x,1,[]),StimInfo.names,'uni',0);
+                    info.names{iGroup,iClass} = [names{stim_idx}];
                 end
                 
                 [P(iGroup,:), P_shfl(iGroup,:), unit_idx(iGroup,:), score(iGroup,:)]= ...
@@ -175,9 +176,10 @@ classdef Decode < dj.Computed
             % output: {classes}[reps trials]
             
             % get decoder parameters
-            [decoder,k_fold,shuffle,repetitions,select_method] = ...
+            [decoder,k_fold,shuffle,repetitions,select_method, dec_params] = ...
                 fetch1(obj.DecodeOpt & key,...
-                'decoder','k_fold','shuffle','repetitions','select_method');
+                'decoder','k_fold','shuffle','repetitions','select_method','dec_params');
+            if ~isempty(dec_params);dec_params = [',' dec_params];end
             
             PP = cell(repetitions,1); RR = PP;Cells = [];SC = PP;
             fprintf('Rep:')
@@ -283,7 +285,8 @@ classdef Decode < dj.Computed
                     for ibin = 1:bins
                         idx = train_idx ~= ibin;
                         tidx = test_idx == ibin;
-                        DEC = feval(decoder,data(cell_idx(cell_num(icell,:)),idx)', groups(idx)');
+                        %DEC = feval(decoder,data(cell_idx(cell_num(icell,:)),idx)', groups(idx)');
+                        DEC = eval(sprintf('%s(data(cell_idx(cell_num(icell,:)),idx)'', groups(idx)''%s)',decoder,dec_params));
                         [pre, sc] = predict(DEC,test_data(cell_idx(cell_num(icell,:)),tidx)');
                         p =  (pre == test_groups(tidx)');
                         r =  (pre == test_shfl_groups(tidx)');

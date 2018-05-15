@@ -17,7 +17,7 @@ classdef Decode < dj.Computed
     %#ok<*INUSL>
     
     properties
-        keySource  = (simf.RFParams) * (simf.TraceParams & simf.Traces)...
+        keySource  = (simf.RFParams) * (simf.TraceParams & simf.TraceGroup)...
             * (simf.DecodeOpt & 'process = "yes"')
     end
     
@@ -29,10 +29,10 @@ classdef Decode < dj.Computed
             assert(~isempty(train_set));
             [train_groups,test_groups] = getGroups(self,train_set,test_set);
             stims = cellfun(@(x) unique(cellfun(@(y) y{1},x,'uni',0)),train_groups,'uni',0);
-            Stims = unique([stims{:}]);
+            Stims = unique([stims{:}])';
             
             % get DAta
-            [Traces, Stims, Unit_ids] = getData(self,Stims,key); % [Cells, Obj, Trials]
+            [Traces, Unit_ids] = getData(self,Stims,key); % [Cells, Obj, Trials]
          
             if ~isempty(test_groups)
                 train_sz = cell2mat(cellfun(@size,train_groups,'uni',0));
@@ -79,7 +79,7 @@ classdef Decode < dj.Computed
     end
     
     methods
-        function [Data, Stims, Unit_ids] = getData(self,Stims,key)
+        function [Data, Unit_ids] = getData(self,Stims,key)
             Data = [];
             for iStim = 1:length(Stims)
                 k.movie_name = Stims{iStim};

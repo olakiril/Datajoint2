@@ -1,7 +1,7 @@
 %{
 trace_opt       : smallint unsigned      #
 ---
-activ_func="ReSqu"                : enum('ReLu','ReSqU','biReLu','biReSqU')       # activation function nonlinearity
+activ_func="ReSqu"                : enum('ReLu','ReSqU','biReLu','biReSqU','divNorm')       # activation function nonlinearity
 %}
 
 
@@ -17,6 +17,8 @@ classdef TraceParams < dj.Lookup
                     activ_func = @(x) abs(x);
                 case 'biReSqU'
                     activ_func = @(x) x.^2;
+                case 'divNorm'
+                    activ_func = @(x) bsxfun(@rdivide,max(0,x).^2,0.01+sum(max(0,x).^2));
             end
         end
     end
