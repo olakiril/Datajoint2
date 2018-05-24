@@ -27,7 +27,7 @@ classdef RFParams < dj.Lookup
                         filters(:,:,ifilter) = filters(:,:,ifilter) + filters(:,:,idx);
                     end
                 case 'mmICA'
-                    [responses, ids] = fetchn(simf.RFResponses & 'movie_name = "MadMax"' & 'rf_opt = 2','response','filter_id');
+                    [responses, ids] = fetchn(simf.RFRawResponses & 'movie_name = "MadMax"' & 'rf_opt = 2','response','filter_id');
                     [~,idx]= sort(ids);
                     responses = cell2mat(responses(idx));
                     c = corr(responses');
@@ -36,9 +36,10 @@ classdef RFParams < dj.Lookup
                     for ifilter = 1:size(filters,3)
                         [~,idx] = sort(c(ifilter,:),'descend');
                         filters(:,:,ifilter) = mean(filters(:,:,idx(1:2)),3);
+                        c(idx(2),idx(1)) = 0;
                     end
                 case 'obj1ICA'
-                    [responses, ids] = fetchn(simf.RFResponses & 'movie_name = "obj1v6"' & 'rf_opt = 2','response','filter_id');
+                    [responses, ids] = fetchn(simf.RFRawResponses & 'movie_name = "obj1v6"' & 'rf_opt = 2','response','filter_id');
                     [~,idx]= sort(ids);
                     responses = cell2mat(responses(idx));
                     c = corr(responses');
@@ -47,19 +48,20 @@ classdef RFParams < dj.Lookup
                     for ifilter = 1:size(filters,3)
                         [~,idx] = sort(c(ifilter,:),'descend');
                         filters(:,:,ifilter) = mean(filters(:,:,idx(1:2)),3);
+                        c(idx(2),idx(1)) = 0;
                     end
                 case 'objICA'
                     Resp = [];
-                    [responses, ids] = fetchn(simf.RFResponses & 'movie_name = "obj1v6"' & 'rf_opt = 2','response','filter_id');
+                    [responses, ids] = fetchn(simf.RFRawResponses & 'movie_name = "obj1v6"' & 'rf_opt = 2','response','filter_id');
                     [~,idx]= sort(ids);
                     Resp{1} = cell2mat(responses(idx));
-                    [responses, ids] = fetchn(simf.RFResponses & 'movie_name = "obj2v6"' & 'rf_opt = 2','response','filter_id');
+                    [responses, ids] = fetchn(simf.RFRawResponses & 'movie_name = "obj2v6"' & 'rf_opt = 2','response','filter_id');
                     [~,idx]= sort(ids);
                     Resp{2} = cell2mat(responses(idx));
-                    [responses, ids] = fetchn(simf.RFResponses & 'movie_name = "obj3v6"' & 'rf_opt = 2','response','filter_id');
+                    [responses, ids] = fetchn(simf.RFRawResponses & 'movie_name = "obj3v6"' & 'rf_opt = 2','response','filter_id');
                     [~,idx]= sort(ids);
                     Resp{3} = cell2mat(responses(idx));
-                    [responses, ids] = fetchn(simf.RFResponses & 'movie_name = "obj4v6"' & 'rf_opt = 2','response','filter_id');
+                    [responses, ids] = fetchn(simf.RFRawResponses & 'movie_name = "obj4v6"' & 'rf_opt = 2','response','filter_id');
                     [~,idx]= sort(ids);
                     Resp{4} = cell2mat(responses(idx));
                     responses = cell2mat(Resp);
@@ -69,6 +71,7 @@ classdef RFParams < dj.Lookup
                     for ifilter = 1:size(filters,3)
                         [~,idx] = sort(c(ifilter,:),'descend');
                         filters(:,:,ifilter) = mean(filters(:,:,idx(1:2)),3);
+                        c(idx(2),idx(1)) = 0;
                     end
             end
             

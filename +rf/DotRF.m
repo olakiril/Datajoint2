@@ -1,14 +1,14 @@
 %{
 # 
 -> stimulus.Sync
--> reso.Activity
+-> fuse.ScanDone
 -> tune.DotRFMethod
 %}
 
 classdef DotRF < dj.Computed
     
     properties
-        popRel = tune.DotRFMethod * reso.Activity & ...
+        popRel = tune.DotRFMethod * fuse.Activity & ...
             (stimulus.Sync & stimulus.SingleDot)
     end
     
@@ -19,16 +19,12 @@ classdef DotRF < dj.Computed
             [mon_size, mon_dist] = fetch1(experiment.DisplayGeometry & ...
                 (reso.Activity * stimulus.Sync & stimulus.SingleDot & key), ...
                 'monitor_size','monitor_distance');
-
             [onset_delay, response_duration, rf_filter, shuffle, sd, snr_method] = ...
                 fetch1(tune.DotRFMethod & key, ...
                 'onset_delay', 'response_duration', 'rf_filter', 'shuffle', 'rf_sd');
             
             % get stimulus conditions
-            
-            trials = (stimulus.Sync * stimulus.Trial * stimulus.SingleDot &...
-            key);
-
+            trials = (stimulus.Sync * stimulus.Trial * stimulus.SingleDot & key);
             conds = fetch(stimulus.Condition * stimulus.SingleDot & trials.fetch);
             [locations_x,locations_y,levels] = fetchn(stimulus.SingleDot & conds, 'dot_x', 'dot_y', 'dot_level');
             locations_x = unique(locations_x);
@@ -38,39 +34,24 @@ classdef DotRF < dj.Computed
             deg2dot = 2*atand((mon_size/2)/(mon_dist/2.54))\norm(map_size);
             
             % get traces and frame times
-            [traces, frame_times, trace_keys] = pipetools.getAdjustedSpikes(key);
-            xm = min([size(frame_times,2) size(traces,1)]);
-            frame_times = frame_times(:,1:xm);
-            traces = traces(1:xm,:);
+            [traces, frame_times, trace_keys] = getAdjustedSpikes(fuse.ActivityTrace & key);
             
             % get responses for each trial
             trials = trials.fetch('dot_level', 'condition_hash', 'dot_x', 'dot_y', 'flip_times');
-            raw_response = nan(length(trials), size(traces,2));
+            response = nan(length(trials),length(levels),size(traces,2));
             index = nan(length(trials),1);
             for itrial = 1:length(trials)
                 trial = trials(itrial);
                 frame_rel = frame_times<trial.flip_times(1)+response_duration/1000 +onset_delay/1000 ...
                     & frame_times>trial.flip_times(1)+onset_delay/1000;
                 index(itrial) = sub2ind(map_size, find(locations_x==trial.dot_x), find(locations_y==trial.dot_y));
-                raw_response(itrial,:) = nanmean(traces(frame_rel,:), 1);
-            end
-            
-            % split dot levels 
-            response = nan(length(trials), length(levels), size(traces,2));
-            for itrial = 1:length(trials)
-                trial = trials(itrial);
-                if trial.dot_level==levels(1)
-                    response(itrial,1,:) = raw_response(itrial, :);
-                else 
-                    response(itrial,2,:) = raw_response(itrial, :);
-                end
+                response(itrial,(trial.dot_level==levels(2))+1,:) = single(nanmean(traces(frame_rel,:),1));
             end
             
             % clean up memory and shrink variable size.
-            clearvars traces frame_times trials conds;
-            response = single(response);
+            clear traces frame_times trials conds;
             
-            % shuffle trials.
+            % shuffle trials
             sfl_resp_p = nan(size(response,1),size(response,2),shuffle);
             trial_length = size(response, 1);
             resp_p = mean(response,3);
@@ -78,17 +59,13 @@ classdef DotRF < dj.Computed
             for i = 2:shuffle
                 sfl_resp_p(:,:,i) = sfl_resp_p(randperm(trial_length),:,i-1);
             end
-            
-%             [sfl_resp, sfl_resp_p] = shuffle_trial(response, shuffle);
-            
+                        
             % average across trials
             response_map = nan(map_size(1),map_size(2),length(levels),size(response,3));
-%             sfl_response_map = nan(map_size(1),map_size(2),map_size(3),size(response,3),shuffle);
             sfl_resp_map_p = nan(map_size(1),map_size(2),length(levels),shuffle);
             for iloc = unique(index)'
                 [x, y] = ind2sub(map_size, iloc);
                 response_map(x,y,:,:) = nanmean(response(index==iloc,:,:));
-%                 sfl_response_map(x,y,l,:,:) = nanmean(sfl_resp(index==iloc,:,:));
                 sfl_resp_map_p(x,y,:,:) = nanmean(sfl_resp_p(index==iloc,:,:));
             end
             
@@ -103,21 +80,19 @@ classdef DotRF < dj.Computed
             key.center_y = (key.gauss_fit(1) - map_size(2)/2 - 0.5) / map_size(1);
             key.center_x = (key.gauss_fit(2) - map_size(1)/2 - 0.5) / map_size(1);
             insert(tune.DotRFMapPop,key);
-            
-            tuples=[];
+           
             % compute and insert cell rfs
+            tuples=[];
             parfor itrace = 1:length(trace_keys)
                 tuple = trace_keys(itrace);
                 tuple.rf_method = key.rf_method;
                 tuple.field = key.field;
                 tuple.channel = key.channel;
                 tuple.response_map = response_map(:,:,:,itrace);
-%                 tuple.response_map = max(response_map(:,:,:,itrace),[],3);
                 tuple.gauss_fit = self.fitGauss(max(tuple.response_map,[],3), deg2dot, rf_filter);
                 tuple.snr = self.rfSNR(tuple.gauss_fit, max(tuple.response_map,[],3),sd,snr_method);
                 
                 % shuffle across trials
-%                 sfl = shuffle_trial(response(:,:,itrace),shuffle);
                 sfl = nan(size(response,1),size(response,2),shuffle);
                 sfl(:,:,1) = response(randperm(trial_length),:,itrace);
                 for i = 2:shuffle

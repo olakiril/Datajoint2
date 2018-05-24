@@ -5,7 +5,7 @@ activ_func="ReSqu"                : enum('ReLu','ReSqU','biReLu','biReSqU','divN
 %}
 
 
-classdef TraceParams < dj.Lookup
+classdef ActivityParams < dj.Lookup
     methods
         function activ_func = getActivation(self)
             switch fetch1(self,'activ_func')

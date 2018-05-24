@@ -20,7 +20,7 @@ classdef Decode < dj.Computed
     properties
         keySource  = (fuse.ScanDone * anatomy.Area & anatomy.AreaMembership)...
             * (obj.DecodeOpt & 'process = "yes"') ...
-            & (stimulus.Sync & (stimulus.Trial &  (stimulus.Clip & (stimulus.Movie & 'movie_class="object3d"'))))
+            & (stimulus.Sync & (stimulus.Trial &  (stimulus.Clip & (stimulus.Movie & 'movie_class="object3d" OR movie_class="multiobjects"'))))
     end
     
     methods(Access=protected)
@@ -86,7 +86,7 @@ classdef Decode < dj.Computed
             if nargin<3
                 bin = fetch1(obj.DecodeOpt & key, 'binsize');
             end
-
+            
             
             % get traces
             [Traces, caTimes, keys] = getAdjustedSpikes(fuse.ActivityTrace & (anatomy.AreaMembership & key),'soma'); % [time cells]
@@ -115,14 +115,14 @@ classdef Decode < dj.Computed
             % subsample traces
             Traces = permute(X(flip_times - caTimes(1)),[2 3 1]);
             if bin>0
-                 fps = 1/median(diff(flip_times(1,:)));
-                 d = max(1,round(bin/1000*fps));
-                 Traces = convn(Traces,ones(d,1)/d,'same');
-                 Traces = Traces(1:d:end,:,:);
+                fps = 1/median(diff(flip_times(1,:)));
+                d = max(1,round(bin/1000*fps));
+                Traces = convn(Traces,ones(d,1)/d,'same');
+                Traces = Traces(1:d:end,:,:);
             end
             Traces = permute(Traces,[2 1 3]); % in [cells bins trials]
             
-            if nargin>3 && stim_split 
+            if nargin>3 && stim_split
                 Data = Traces;
                 info = [];
             else
@@ -207,7 +207,7 @@ classdef Decode < dj.Computed
                     test_data = data;
                     rseed.reset; % ensures same time randomization for index generation
                     data_idx = cellfun(@(x) randperm(rseed,size(x,2),msz),Data,'uni',0);% create bin index
-                else % randomize trials 
+                else % randomize trials
                     rseed2 = RandStream('mt19937ar','Seed',repetitions+irep);
                     test_data = cellfun(@(x) x(:,randperm(rseed,size(x,2))),test_Data,'uni',0);
                     rseed2.reset; % ensures same time randomization for index generation
@@ -260,7 +260,7 @@ classdef Decode < dj.Computed
                     case 'single'
                         cell_num = diag(true(size(cell_idx)));
                     case 'rf'
-                        % get all rfs to compute center 
+                        % get all rfs to compute center
                         [x,y] = getDegrees(tune.DotRFMap & (fuse.ScanDone & key) & 'p_value<0.05',1);
                         mx = mean(x);
                         my = mean(y);
@@ -272,9 +272,9 @@ classdef Decode < dj.Computed
                         indexes = 50;
                         cell_num = false(length(indexes),numel(cell_idx));
                         for i = 1:length(indexes)
-                           cell_num(i,unit_idx(1:indexes(i))) = true;
+                            cell_num(i,unit_idx(1:indexes(i))) = true;
                         end
-                       
+                        
                     otherwise
                         error('Cell selection method not supported')
                 end
@@ -352,8 +352,8 @@ classdef Decode < dj.Computed
                     MI{iarea} = mi;
                 else
                     labl = 'Classification performance (%)';
-                      mi = nan(length(idx),1);
-                     for iscan = 1:length(idx)
+                    mi = nan(length(idx),1);
+                    for iscan = 1:length(idx)
                         R = cell2mat(reshape(perf{idx(iscan)},1,[]));
                         if nargin>2
                             cellnum = cellfun(@length,trial_info{idx(iscan)}.units{1});
@@ -361,11 +361,11 @@ classdef Decode < dj.Computed
                             R = R(:,:,cell_idx);
                         end
                         mi(iscan) = nanmean(R(:));
-                     end
-                     MI{iarea} = mi;
-%                     if nargin>2 && target_cell_num>cells(idx)
-%                         MI{iarea} = cellfun(@(x) nanmean(reshape(cellfun(@(xx) double(nanmean(xx(:))),x),[],1)), perf(idx));
-%                     end
+                    end
+                    MI{iarea} = mi;
+                    %                     if nargin>2 && target_cell_num>cells(idx)
+                    %                         MI{iarea} = cellfun(@(x) nanmean(reshape(cellfun(@(xx) double(nanmean(xx(:))),x),[],1)), perf(idx));
+                    %                     end
                 end
             end
             
@@ -386,6 +386,45 @@ classdef Decode < dj.Computed
                 plotMask(anatomy.Masks & ['brain_area="' areas{iarea} '"'],colors(idx,:),length(MI{iarea}))
             end
             set(c,'ytick',linspace(0,1,5),'yticklabel',roundall(linspace(mn,mx,5),mx/10))
+        end
+        
+        function plotCells(self, mx_cell)
+            %             [areas,keys] = fetchn(self,'brain_area');
+            %             un_areas = unique(areas);
+            %             colors = jet(length(un_areas));
+            %             for ikey = 1:length(keys)
+            %                 key = keys(ikey);
+            %                 [mi,trial_info] = fetch1(obj.Decode & key,'p','trial_info');
+            %                 mi = cell2mat(cellfun(@(x) nanmean(reshape(x,[],size(x,3))),mi(:),'uni',0));
+            %                 cell_num = mean(cell2mat(cellfun(@(x) cellfun(@length,x),trial_info.units(:),'uni',0)));
+            %                errorPlot(cell_num,mi,'errorColor',colors(strcmp(areas{ikey},un_areas),:));
+            %             end
+            %             l = legend(areas);
+            
+            [areas,keys] = fetchn(self,'brain_area');
+            
+            MI= [];
+            cell_num = [];
+            for ikey = 1:length(keys)
+                key = keys(ikey);
+                [mi,trial_info] = fetch1(obj.Decode & key,'p','trial_info');
+                MI{ikey} = cell2mat(cellfun(@(x) nanmean(reshape(x,[],size(x,3))),mi(:),'uni',0));
+                cell_num{ikey} = mean(cell2mat(cellfun(@(x) cellfun(@length,x),trial_info.units(:),'uni',0)));
+                
+            end
+            idx = cellfun(@(x) any(x>mx_cell),cell_num);
+            areas = areas(idx);
+            MI = MI(idx);
+            cell_num = cell_num(idx);
+            idx = find(cell_num{1}==mx_cell);
+            un_areas = unique(areas);
+            colors = hsv(length(un_areas));
+            for iarea = 1:length(un_areas)
+                mi = MI(strcmp(areas,un_areas{iarea}));
+                errorPlot([cell_num{1}(1:idx)],cell2mat(cellfun(@(x) double(x(:,1:idx)),mi,'uni',0)'),'errorColor',colors(iarea,:));
+                
+            end
+            l = legend(un_areas);
         end
     end
     

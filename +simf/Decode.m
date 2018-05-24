@@ -1,7 +1,7 @@
 %{
 # Object decoding sith simulated responses
 -> simf.RFParams
--> simf.TraceParams
+-> simf.ActivityParams
 -> simf.DecodeOpt
 ---
 p                     : longblob                      # performance
@@ -17,7 +17,7 @@ classdef Decode < dj.Computed
     %#ok<*INUSL>
     
     properties
-        keySource  = (simf.RFParams) * (simf.TraceParams & simf.TraceGroup)...
+        keySource  = (simf.RFParams) * (simf.ActivityParams & simf.Activity)...
             * (simf.DecodeOpt & 'process = "yes"')
     end
     
@@ -83,7 +83,7 @@ classdef Decode < dj.Computed
             Data = [];
             for iStim = 1:length(Stims)
                 k.movie_name = Stims{iStim};
-                [traces, ids] = fetchn(simf.Traces & key & k,'trace','filter_id');
+                [traces, ids] = fetchn(simf.ActivityTrace & key & k,'trace','filter_id');
                 Data{iStim} = cell2mat(traces);
             end
             Unit_ids = ids;

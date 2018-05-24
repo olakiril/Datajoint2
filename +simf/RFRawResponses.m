@@ -1,13 +1,16 @@
 %{
-->simf.RFRespGroup
-->simf.RFFilters
+->simf.RFRaw
+filter_id                             : smallint      # 
 ---
 response                             : mediumblob                            #
 %}
 
 
-classdef RFResponses < dj.Computed
-    methods(Access=protected)
+classdef RFRawResponses < dj.Part
+    properties(SetAccess=protected)
+        master = simf.RFRaw
+    end
+    methods
         function makeTuples(self, key)
                 insert(self,key)
         end

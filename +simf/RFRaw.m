@@ -5,7 +5,7 @@
 %}
 
 
-classdef RFRespGroup < dj.Computed
+classdef RFRaw < dj.Computed
     properties
         keySource  = (simf.RFParams & simf.RFFilters) * stimulus.Movie
     end
@@ -17,10 +17,10 @@ classdef RFRespGroup < dj.Computed
             [filters, keys] = fetchn(simf.RFFilters & key,'filter');
             filters = cell2mat(cellfun(@(x) x(:),filters,'uni',0)');
             movie_keys = fetch(stimulus.MovieClip & key);
-            responses = [];
-            for movie_key=movie_keys'
+            responses = cell(length(movie_keys),1);
+            parfor imovie=1:length(movie_keys)
                 
-                filename = export(stimulus.MovieClip & movie_key, 'temp');
+                filename = export(stimulus.MovieClip & movie_keys(imovie), 'temp');
                 
                 vr = VideoReader(filename{1});
                
@@ -37,16 +37,16 @@ classdef RFRespGroup < dj.Computed
                 file = file(1:y_sz,round(size(file,2)/2 - x_sz/2)+1:round(size(file,2)/2+ x_sz/2),:);
                 file = reshape(file,size(filters,1),size(file,3));
                 
-                responses(:,end+1:end+size(file,2)) = filters'*file;
-                
+%                 responses(:,end+1:end+size(file,2)) = filters'*file;
+                responses{imovie} = filters'*file;
             end
-            
+            responses = cell2mat(responses');
             insert(self,key)
            [keys.movie_name] = deal(key.movie_name);
             for ikey = 1:length(keys)
                 rf_key = keys(ikey);
                 rf_key.response = responses(ikey,:);
-                makeTuples(simf.RFResponses,rf_key)
+                makeTuples(simf.RFRawResponses,rf_key)
             end
         end
     end
