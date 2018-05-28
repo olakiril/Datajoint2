@@ -41,7 +41,7 @@ classdef ReDim < dj.Computed
             Unit_ids = Unit_ids(rand_idx);
             switch select_method
                 case 'all'
-                    cell_idx = ones(size(Data,1),1);
+                    cell_idx = 1:size(Data,1);
                 case 'rf'
                     % get all rfs to compute center
                     [x,y] = getDegrees(tune.DotRFMap & (fuse.ScanDone & key) & 'p_value<0.05',1);
@@ -79,12 +79,12 @@ classdef ReDim < dj.Computed
     
     methods
         
-        function [Traces, Trials, Unit_ids] = getData(obj,key,bin)
+        function [Traces, Trials, Unit_ids] = getData(self,key,bin)
             
             % get traces
             [Traces, caTimes, keys] = getAdjustedSpikes(fuse.ActivityTrace & (anatomy.AreaMembership & key),'soma'); % [time cells]
             Unit_ids = [keys.unit_id];
-
+            
             % get rid of nans
             notnanidx = ~isnan(mean(Traces,2)); % faster than all
             Traces = Traces(notnanidx,:);
@@ -112,6 +112,119 @@ classdef ReDim < dj.Computed
             end
             Traces = permute(Traces,[2 1 3]); % in [cells bins trials]
         end
+        
+        function plot(self,varargin)
+            
+            params.classes = [];
+            params.tbin = 3;
+            params.method = 'lines';
+            params.colormap = 'parula';
+            params.play = true;
+            
+            params = getParams(params,varargin);
+            
+            % setup figure
+            hf = figure('units','normalized');
+            f_pos = get(hf,'outerposition');
+            
+            % get data
+            [trials,mappedX,bins] = fetch1(self,'trials','mapped','bins');
+            
+            % get classes
+            uTrials = unique(trials);
+            [all_trials, movie_name] = fetchn(stimulus.Trial * stimulus.Clip & self,'trial_idx','movie_name');
+            [common_trials, trial_idx] = intersect(all_trials,uTrials);
+            movies = movie_name(trial_idx);
+            if isempty(params.classes)
+                params.classes = unique(movies);
+            end
+            
+            % get colors
+            switch params.method
+                case 'dots'
+                    colors = feval(params.colormap,length(params.classes));
+                    hold on
+                case 'lines'
+                    colormap(eval(params.colormap))
+                    colors = linspace(0,1,length(params.classes));
+            end
+            
+            % loop through each trial and plot
+            for itrial = 1:length(uTrials)
+                
+                % only plot requested classes
+                mov_idx = strcmp(movies{common_trials==uTrials(itrial)},params.classes);
+                if ~any(mov_idx);continue;end
+                
+                % find trial
+                trialIdx = trials==uTrials(itrial);
+                
+                switch params.method
+                    case 'dots'
+                        plot3(mappedX(trialIdx,1),mappedX(trialIdx,2),mappedX(trialIdx,3),'.','color',colors(mov_idx,:))
+                    case 'lines'
+                        xx = interpn(mappedX(trialIdx,1),params.tbin,'cubic');
+                        yy = interpn(mappedX(trialIdx,2),params.tbin,'cubic');
+                        zz = interpn(mappedX(trialIdx,3),params.tbin,'cubic');
+                        
+                        col = repmat(colors(mov_idx),1,length(xx));
+                        surface([xx; xx],[yy; yy],[zz; zz],[col;col],...
+                            'facecol','no',...
+                            'edgecol','interp',...
+                            'linew',1,'facealpha',0.5,'edgealpha',0.5);
+                    otherwise
+                        error('Method not recognized!')
+                end
+            end
+            shg
+            
+            % autorotate
+            if params.play
+                az = 0;
+                set(gcf,'KeyPressFcn',@EvalEvent)
+                axis equal; axis off
+                run = true;
+                play
+            end
+            
+            function EvalEvent(~, event)
+                switch event.Key
+                    case 'escape'
+                        run = false;
+                        hf.reset
+                        hf.delete
+                        clear hf
+                    case 'f' % toggle fullscreen
+                        set(hf,'units','normalized')
+                        p = get(hf,'outerposition');
+                        if all(p~=[0 0 1 1])
+                            set(hf,'outerposition',[0 0 1 1]);
+                        else
+                            set(hf,'outerposition',f_pos);
+                        end
+                        set(hf,'units','pixels')
+                        shg
+                        
+                    case 'space'
+                        if ~run
+                            run = true;
+                            play
+                        else
+                            run=false;
+                        end
+                end
+            end
+            
+            
+            function play
+                while run
+                    view([az 20])
+                    az = az+1;
+                    pause(0.02)
+                end
+            end
+        end
+        
     end
 end
 
