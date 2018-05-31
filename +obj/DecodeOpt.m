@@ -11,7 +11,7 @@ repetitions=10          : tinyint                                   # trial grou
 trial_method="random"   : enum('random','sequential')               # trial selection method
 process="yes"           : enum('no','yes')                          # do it or not
 rf_opt=0                : smallint unsigned                         # restrict anaysis to population RF
-select_method="all"     : enum('all','subsample','expand')          # cell selection 
+select_method="all"     : enum('all','subsample','single','rf')     # cell selection 
 shuffle=1000            : mediumint                                 # chance performance
 k_fold=10               : tinyint                                   # crossvalidation fold
 %}

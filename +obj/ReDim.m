@@ -111,6 +111,9 @@ classdef ReDim < dj.Computed
                 Traces = Traces(1:d:end,:,:);
             end
             Traces = permute(Traces,[2 1 3]); % in [cells bins trials]
+            
+            % remove NaNs
+            Traces(isnan(Traces))=0;
         end
         
         function plot(self,varargin)
@@ -118,17 +121,26 @@ classdef ReDim < dj.Computed
             params.classes = [];
             params.tbin = 3;
             params.method = 'lines';
-            params.colormap = 'parula';
+            params.colormap = 'hsv';
+            params.colormap = @(x) cbrewer('qual','Set1',x);
             params.play = true;
+            params.markersize = 2;
+            params.time = false;
+            params.dec_opt = 1;
+            params.contrast = 1;
+            params.dims = [1 2 3];
+            params.fig_color = [1 1 1];
             
             params = getParams(params,varargin);
             
             % setup figure
             hf = figure('units','normalized');
             f_pos = get(hf,'outerposition');
+            set(hf,'color',params.fig_color)
             
             % get data
             [trials,mappedX,bins] = fetch1(self,'trials','mapped','bins');
+            assert(max(params.dims)<=size(mappedX,2),'Dimentions requested do not exist')
             
             % get classes
             uTrials = unique(trials);
@@ -145,11 +157,22 @@ classdef ReDim < dj.Computed
                     colors = feval(params.colormap,length(params.classes));
                     hold on
                 case 'lines'
-                    colormap(eval(params.colormap))
                     colors = linspace(0,1,length(params.classes));
+                case 'score'
+                    assert(fetch1(obj.ReDimOpt & self,'binsize') == ...
+                        fetch1(obj.DecodeOpt& sprintf('dec_opt = %d',params.dec_opt),'binsize'),...
+                        'Timebins don''t match!')
+                    [score, trial_info] = fetch1(obj.Decode & self & sprintf('dec_opt = %d',params.dec_opt),'score','trial_info');
+                    dec_classes =cellfun(@(x) cell2mat(unique(x)),trial_info.names,'uni',0);
+                    dec_idx = all(ismember(dec_classes,params.classes)');
+                    mx_score = max(reshape(cellfun(@(x) nanmax(abs(x(:))),score(dec_idx,:)),[],1));
+                    colors = (cbrewer('div','PiYG',100));
+                    score = cellfun(@(x) min(1,max(0.01,x/mx_score*params.contrast/2+0.5)),score,'uni',0);
+                    hold on
             end
             
             % loop through each trial and plot
+            ax = [];
             for itrial = 1:length(uTrials)
                 
                 % only plot requested classes
@@ -157,33 +180,63 @@ classdef ReDim < dj.Computed
                 if ~any(mov_idx);continue;end
                 
                 % find trial
-                trialIdx = trials==uTrials(itrial);
+                trialIdx = find(trials==uTrials(itrial));
                 
                 switch params.method
                     case 'dots'
-                        plot3(mappedX(trialIdx,1),mappedX(trialIdx,2),mappedX(trialIdx,3),'.','color',colors(mov_idx,:))
+                        ax(itrial) = plot3(mappedX(trialIdx,params.dims(1)),...
+                            mappedX(trialIdx,params.dims(2)),...
+                            mappedX(trialIdx,params.dims(3)),'.',...
+                            'color',colors(mov_idx,:),'markersize',params.markersize);
                     case 'lines'
-                        xx = interpn(mappedX(trialIdx,1),params.tbin,'cubic');
-                        yy = interpn(mappedX(trialIdx,2),params.tbin,'cubic');
-                        zz = interpn(mappedX(trialIdx,3),params.tbin,'cubic');
+                        xx = interpn(mappedX(trialIdx,params.dims(1)),params.tbin,'cubic');
+                        yy = interpn(mappedX(trialIdx,params.dims(2)),params.tbin,'cubic');
+                        zz = interpn(mappedX(trialIdx,params.dims(3)),params.tbin,'cubic');
                         
-                        col = repmat(colors(mov_idx),1,length(xx));
-                        surface([xx; xx],[yy; yy],[zz; zz],[col;col],...
+                        if ~params.time
+                            col = repmat(colors(mov_idx),1,length(xx));
+                        else
+                            col = linspace(0,1,length(xx)); % assumes ordered bins in each trial
+                        end
+                        ax(itrial) = surface([xx; xx],[yy; yy],[zz; zz],[col;col],...
                             'facecol','no',...
                             'edgecol','interp',...
                             'linew',1,'facealpha',0.5,'edgealpha',0.5);
+                    case 'score'
+                        dec_mov_idx = strcmp(params.classes(mov_idx),dec_classes(dec_idx,:));
+                        dec_trial_idx = trial_info.trials{dec_idx,dec_mov_idx}==uTrials(itrial);
+                        if ~any(dec_trial_idx);continue;end
+                        trial_score = roundall(score{dec_idx,dec_mov_idx}(dec_trial_idx),0.01)*100;
+                        for ibin = 1:length(trialIdx)
+                            plot3(mappedX(trialIdx(ibin),params.dims(1)),...
+                                mappedX(trialIdx(ibin),params.dims(2)),...
+                                mappedX(trialIdx(ibin),params.dims(3)),'.',...
+                                'color',colors(round(trial_score(ibin)),:),'markersize',params.markersize);
+                        end
                     otherwise
                         error('Method not recognized!')
                 end
             end
+            colormap(feval(params.colormap,length(params.classes)))
             shg
+            
+            if ~params.time && ~strcmp(params.method,'score')
+                axl = [];
+                for iclass =1:length(params.classes)
+                    axl(iclass) = ax(find(strcmp(movies,params.classes{iclass}),1,'first'));
+                end
+                l = legend(axl,params.classes);
+            end
+            
             
             % autorotate
             if params.play
                 az = 0;
+                view([az 20])
                 set(gcf,'KeyPressFcn',@EvalEvent)
-                axis equal; axis off
+                axis tight; axis off
                 run = true;
+                camproj perspective
                 play
             end
             
@@ -218,8 +271,8 @@ classdef ReDim < dj.Computed
             
             function play
                 while run
-                    view([az 20])
-                    az = az+1;
+                    old_vd = get(gca,'view');
+                    view([old_vd(1)+1 old_vd(2)])
                     pause(0.02)
                 end
             end

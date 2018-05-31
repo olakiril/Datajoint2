@@ -198,7 +198,7 @@ classdef Decode < dj.Computed
                 bin_sz = floor(msz/bins);
                 msz = bin_sz*bins;
                 
-                % undersample data
+                % undersample dataCe
                 rseed = RandStream('mt19937ar','Seed',irep);
                 data = cellfun(@(x) x(:,randperm(rseed,size(x,2),msz)),Data,'uni',0);
                 
@@ -401,6 +401,7 @@ classdef Decode < dj.Computed
             %             end
             %             l = legend(areas);
             
+            figure
             [areas,keys] = fetchn(self,'brain_area');
             
             MI= [];
@@ -425,6 +426,16 @@ classdef Decode < dj.Computed
                 
             end
             l = legend(un_areas);
+        end
+        
+        function perf = getAvgPerformace(self, mi)
+            p = fetchn(self,'p');
+            if nargin>1 && mi
+                fun = @(p) obj.Decode.getMI(p);
+            else
+                fun = @(p) p;
+            end
+            perf = cellfun(@(x) nanmean(reshape(cellfun(@(y) double(nanmean(fun(y(:)))),x),[],1)),p);
         end
     end
     
