@@ -396,25 +396,26 @@ classdef Decode < dj.Computed
             
             params = getParams(params,varargin);
             
-            if isempty(params.figure)
-                figure
-            end
+           
             [areas,keys] = fetchn(self,'brain_area');
             
-            MI= [];
-            cell_num = [];
             trials_info = fetchn(obj.Decode & keys,'trial_info');
             MI = getPerformance(obj.Decode & keys,params.mi);
             cell_num = cellfun(@(x) cellfun(@length,x),cellfun(@(x) x.units{1,end},trials_info,'uni',0),'uni',0);
             
             if nargin>1 && ~isempty(params.mx_cell)
-                idx = cellfun(@(x) any(x>params.mx_cell),cell_num);
+                idx = cellfun(@(x) any(x>=params.mx_cell),cell_num);
+                if ~idx; return;end
                 areas = areas(idx);
                 MI = MI(idx);
                 cell_num = cell_num(idx);
                 cell_idx = repmat(find(cell_num{1}==params.mx_cell),length(MI),1);
             else
                 cell_idx = cellfun(@(x) length(x), cell_num);
+                end
+            
+                 if isempty(params.figure)
+                figure
             end
             
             un_areas = unique(areas);
@@ -432,7 +433,7 @@ classdef Decode < dj.Computed
                 else
                     mi = MI(strcmp(areas,un_areas{iarea}));
                     h(iarea) = errorPlot([cell_num{1}(1:cell_idx(iarea))],...
-                        cell2mat(cellfun(@(x) double(x(:,1:cell_idx(iarea))),mi,'uni',0)'),...
+                        cell2mat(cellfun(@(x) double(x(:,1:cell_idx(iarea))),mi,'uni',0)),...
                         'errorColor',params.colors(iarea,:));
                 end
             end
