@@ -382,60 +382,95 @@ classdef Decode < dj.Computed
             mn = min(cellfun(@nanmean,MI));
             for iarea = 1:length(areas)
                 mi = nanmean(MI{iarea});
+                if isnan(mi);continue;end
                 idx = double(uint8(floor(((mi-mn)/(mx - mn))*0.99*size(colors,1)))+1);
-                plotMask(anatomy.Masks & ['brain_area="' areas{iarea} '"'],colors(idx,:),length(MI{iarea}))
+                plotMask(anatomy.Masks & ['brain_area="' areas{iarea} '"'],colors(idx,:),sum(~isnan(MI{iarea})))
             end
             set(c,'ytick',linspace(0,1,5),'yticklabel',roundall(linspace(mn,mx,5),mx/10))
         end
         
-        function plotCells(self, mx_cell)
-            %             [areas,keys] = fetchn(self,'brain_area');
-            %             un_areas = unique(areas);
-            %             colors = jet(length(un_areas));
-            %             for ikey = 1:length(keys)
-            %                 key = keys(ikey);
-            %                 [mi,trial_info] = fetch1(obj.Decode & key,'p','trial_info');
-            %                 mi = cell2mat(cellfun(@(x) nanmean(reshape(x,[],size(x,3))),mi(:),'uni',0));
-            %                 cell_num = mean(cell2mat(cellfun(@(x) cellfun(@length,x),trial_info.units(:),'uni',0)));
-            %                errorPlot(cell_num,mi,'errorColor',colors(strcmp(areas{ikey},un_areas),:));
-            %             end
-            %             l = legend(areas);
+        function params = plotCells(self, varargin)
+            params.mx_cell = [];
+            params.mi = false;
+            params.figure = [];
             
-            figure
+            params = getParams(params,varargin);
+            
+            if isempty(params.figure)
+                figure
+            end
             [areas,keys] = fetchn(self,'brain_area');
             
             MI= [];
             cell_num = [];
-            for ikey = 1:length(keys)
-                key = keys(ikey);
-                [mi,trial_info] = fetch1(obj.Decode & key,'p','trial_info');
-                MI{ikey} = cell2mat(cellfun(@(x) nanmean(reshape(x,[],size(x,3))),mi(:),'uni',0));
-                cell_num{ikey} = mean(cell2mat(cellfun(@(x) cellfun(@length,x),trial_info.units(:),'uni',0)));
-                
+            trials_info = fetchn(obj.Decode & keys,'trial_info');
+            MI = getPerformance(obj.Decode & keys,params.mi);
+            cell_num = cellfun(@(x) cellfun(@length,x),cellfun(@(x) x.units{1,end},trials_info,'uni',0),'uni',0);
+            
+            if nargin>1 && ~isempty(params.mx_cell)
+                idx = cellfun(@(x) any(x>params.mx_cell),cell_num);
+                areas = areas(idx);
+                MI = MI(idx);
+                cell_num = cell_num(idx);
+                cell_idx = repmat(find(cell_num{1}==params.mx_cell),length(MI),1);
+            else
+                cell_idx = cellfun(@(x) length(x), cell_num);
             end
-            idx = cellfun(@(x) any(x>mx_cell),cell_num);
-            areas = areas(idx);
-            MI = MI(idx);
-            cell_num = cell_num(idx);
-            idx = find(cell_num{1}==mx_cell);
+            
             un_areas = unique(areas);
-            colors = hsv(length(un_areas));
+            params.colors = hsv(length(un_areas));
+            h = [];
             for iarea = 1:length(un_areas)
-                mi = MI(strcmp(areas,un_areas{iarea}));
-                errorPlot([cell_num{1}(1:idx)],cell2mat(cellfun(@(x) double(x(:,1:idx)),mi,'uni',0)'),'errorColor',colors(iarea,:));
-                
+                area_idx = find(strcmp(areas,un_areas{iarea}));
+                if isempty(params.mx_cell)
+                    for idx = area_idx(:)'
+                        mi = MI(idx);
+                        h(iarea) = errorPlot([cell_num{idx}(1:cell_idx(idx))],...
+                            cell2mat(cellfun(@(x) double(x(:,1:cell_idx(idx))),mi,'uni',0)'),...
+                            'errorColor',params.colors(iarea,:));
+                    end
+                else
+                    mi = MI(strcmp(areas,un_areas{iarea}));
+                    h(iarea) = errorPlot([cell_num{1}(1:cell_idx(iarea))],...
+                        cell2mat(cellfun(@(x) double(x(:,1:cell_idx(iarea))),mi,'uni',0)'),...
+                        'errorColor',params.colors(iarea,:));
+                end
             end
-            l = legend(un_areas);
+            if ~params.mi; plot(get(gca,'xlim'),[0.5 0.5],'-.','color',[0.5 0.5 0.5]);end
+            params.l = legend(h,un_areas);
+            if ~params.mi
+                ylabel('Performance (% correct)')
+            else
+                ylabel('Mutual Information (bits)')
+            end
+            xlabel('# of Cells')
+            set(params.l,'box','off','location','northwest')
+            
         end
         
-        function perf = getAvgPerformace(self, mi)
-            p = fetchn(self,'p');
+        function perf = getPerformance(self,mi)
+            
             if nargin>1 && mi
-                fun = @(p) obj.Decode.getMI(p);
+                fun = @(x) obj.Decode.getMI(x);
             else
-                fun = @(p) p;
+                fun = @(x) nanmean(x);
             end
-            perf = cellfun(@(x) nanmean(reshape(cellfun(@(y) double(nanmean(fun(y(:)))),x),[],1)),p);
+            
+            p = fetchn(self,'p');
+            perf = cell(length(p),1);
+            for ikey = 1:length(p)
+                for icell = 1:size(p{ikey}{1},3)
+                    pp = cellfun(@(y) y(:,:,icell),p{ikey},'uni',0);
+                    min_idx = min(min(cellfun(@(x) size(x,2),pp)));
+                    pp = num2cell(double(cell2mat(cellfun(@(x) x(:,1:min_idx),pp,'uni',0))),2);
+                    
+                    perf{ikey}(:,icell) = (cellfun(@(x) fun(x),pp));
+                end
+            end
+%             if length(p)==1
+%                 perf = perf{1};
+%             end
+            
         end
     end
     
@@ -456,5 +491,6 @@ classdef Decode < dj.Computed
                 mi = sum(sum(p.*log2(p./pij)));
             end
         end
+        
     end
 end

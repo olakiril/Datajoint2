@@ -121,7 +121,6 @@ classdef ReDim < dj.Computed
             params.classes = [];
             params.tbin = 3;
             params.method = 'lines';
-            params.colormap = 'hsv';
             params.colormap = @(x) cbrewer('qual','Set1',x);
             params.play = true;
             params.markersize = 2;
