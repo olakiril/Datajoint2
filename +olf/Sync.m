@@ -1,5 +1,5 @@
 %{
-olf.Sync (imported) #
+#
 -> olf.Session
 animal_id         : int               # id (internal to database)
 session           : smallint          # session index for the mouse
@@ -11,17 +11,20 @@ trials            : mediumblob        # decoded trial time
 %}
 
 
-classdef Sync < dj.Relvar & dj.AutoPopulate
+classdef Sync < dj.Imported
     
     properties
-        popRel = (olf.Session)
+        keySource = (olf.Session)
     end
     
     methods (Access=protected)
         function makeTuples(obj,key)
             
-            [file, dur,it] = fetch1(olf.Session & key,'file_name','pulse_duration','intertrial_interval');
-            path = fetch1(experiment.Session & key,'scan_path');
+            [file, dur,it,file_name] = fetch1(olf.Session & key,'file_name','pulse_duration','intertrial_interval','file_name');
+            file_key =[];
+            file_key.animal_id = key.mouse_id;
+            file_key.filename = file_name;
+            path = fetch1(experiment.Session & (experiment.Scan & file_key),'scan_path');
             mxtrial = max(fetchn(olf.StimPeriods & key,'trial'));
             filetype = getLocalPath(fullfile(path,sprintf('%s%s',file,'*.tif')));
             display(['Reading file: ' filetype])
