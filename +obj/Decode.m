@@ -63,7 +63,7 @@ classdef Decode < dj.Computed
                 end
                 
                 [P(iGroup,:), P_shfl(iGroup,:), unit_idx(iGroup,:), score(iGroup,:)]= ...
-                    decodeMulti(self, train_data, test_data, key, Unit_ids);
+                    decodeMulti(self, train_data, test_data, key, Unit_ids, StimInfo);
             end
             
             % find unit ids from randomization indexes
@@ -170,7 +170,7 @@ classdef Decode < dj.Computed
             end
         end
         
-        function [PP, RR, Cells, SC] = decodeMulti(self,Data,test_Data, key, unit_ids)
+        function [PP, RR, Cells, SC] = decodeMulti(self,Data,test_Data, key, unit_ids, StimInfo)
             % performs a svm classification
             % data: {classes}[cells trials]
             % output: {classes}[reps trials]
@@ -274,15 +274,16 @@ classdef Decode < dj.Computed
                         for i = 1:length(indexes)
                             cell_num(i,unit_idx(1:indexes(i))) = true;
                         end
-                        
+                    case 'reliable'
+                        [r,p,keys] = fetchn(obj.RepeatsUnit & (fuse.ScanDone & key),'r','p_shuffle');
                     otherwise
                         error('Cell selection method not supported')
                 end
                 
                 % classify
                 P = cellfun(@(x) nan(size(cell_num,1),size(x,2),'single'),Data,'uni',0);R = P;S = P;
-                for icell = 1:size(cell_num,1)
-                    for ibin = 1:bins
+                for icell = 1:size(cell_num,1) % For each cell permutation
+                    for ibin = 1:bins          % For each fold
                         idx = train_idx ~= ibin;
                         tidx = test_idx == ibin;
                         %DEC = feval(decoder,data(cell_idx(cell_num(icell,:)),idx)', groups(idx)');
@@ -396,7 +397,7 @@ classdef Decode < dj.Computed
             
             params = getParams(params,varargin);
             
-           
+            
             [areas,keys] = fetchn(self,'brain_area');
             
             trials_info = fetchn(obj.Decode & keys,'trial_info');
@@ -412,9 +413,9 @@ classdef Decode < dj.Computed
                 cell_idx = repmat(find(cell_num{1}==params.mx_cell),length(MI),1);
             else
                 cell_idx = cellfun(@(x) length(x), cell_num);
-                end
+            end
             
-                 if isempty(params.figure)
+            if isempty(params.figure)
                 figure
             end
             
@@ -468,9 +469,9 @@ classdef Decode < dj.Computed
                     perf{ikey}(:,icell) = (cellfun(@(x) fun(x),pp));
                 end
             end
-%             if length(p)==1
-%                 perf = perf{1};
-%             end
+            %             if length(p)==1
+            %                 perf = perf{1};
+            %             end
             
         end
     end
