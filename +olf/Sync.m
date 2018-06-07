@@ -20,7 +20,8 @@ classdef Sync < dj.Relvar & dj.AutoPopulate
     methods (Access=protected)
         function makeTuples(obj,key)
             
-            [file, path, dur,it] = fetch1(olf.Session(key),'file_name','path','pulse_duration','intertrial_interval');
+            [file, dur,it] = fetch1(olf.Session & key,'file_name','pulse_duration','intertrial_interval');
+            path = fetch1(experiment.Session & key,'scan_path');
             mxtrial = max(fetchn(olf.StimPeriods & key,'trial'));
             filetype = getLocalPath(fullfile(path,sprintf('%s%s',file,'*.tif')));
             display(['Reading file: ' filetype])
