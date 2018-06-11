@@ -293,6 +293,24 @@ classdef Decode < dj.Computed
                         for i = 1:length(indexes)
                             cell_num(i,unit_idx(1:indexes(i))) = true;
                         end
+                    case 'reliablev2'
+                        [r,keys] = fetchn(obj.RepeatsUnit & (anatomy.AreaMembership & key) & 'rep_opt = 2','r');
+                        r = cellfun(@single,r);
+                        ids = [keys.unit_id];
+                        un_ids = unique(ids);
+                        rel = nan(length(un_ids),1);
+                        for i = 1:length(un_ids)
+                            rel(i) = nanmean((r(ids==un_ids(i))));
+                        end
+                        
+                        % select 50 with reliability above 0.2
+                        sel_units = un_ids(rel>0.2);
+                        indexes = 50;
+                        [~,unit_idx] = intersect(unit_ids(cell_idx),sel_units);
+                        cell_num = false(length(indexes),numel(cell_idx));
+                        for i = 1:length(indexes)
+                            cell_num(i,unit_idx(randperm(length(unit_idx),indexes))) = true;
+                        end
                     otherwise
                         error('Cell selection method not supported')
                 end

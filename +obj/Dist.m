@@ -145,6 +145,49 @@ classdef Dist < dj.Computed
             end
         end
         
+                function plotMasks(self)
+            
+            % get data
+            [perf, area] = fetchn(self & 'brain_area <> "unknown"',...
+                'distance','brain_area');
+            areas = unique(area);
+            MI = cell(size(areas));
+            for iarea = 1:length(areas)
+                idx = find(strcmp(area,areas(iarea)));
+               
+                    labl = 'Avg. Eucl. Distance';
+                    mi = nan(length(idx),1);
+                    for iscan = 1:length(idx)
+                         mi(iscan) = nanmean(reshape(perf{idx(iscan)},1,[]));
+                    end
+                    MI{iarea} = mi;
+            end
+            
+            % plot
+            f = figure;
+            colors = parula(30);
+            plotMask(anatomy.Masks)
+            colormap parula
+            c = colorbar;
+            ylabel(c,labl,'Rotation',-90,'VerticalAlignment','baseline')
+            
+            
+            mx = max(cellfun(@nanmean,MI));
+            mn = min(cellfun(@nanmean,MI));
+            for iarea = 1:length(areas)
+                mi = nanmean(MI{iarea});
+                if isnan(mi);continue;end
+                idx = double(uint8(floor(((mi-mn)/(mx - mn))*0.99*size(colors,1)))+1);
+                plotMask(anatomy.Masks & ['brain_area="' areas{iarea} '"'],colors(idx,:),sum(~isnan(MI{iarea})))
+            end
+            if nargin>1 && norm
+            set(c,'ytick',linspace(0,1,5),'yticklabel',roundall(linspace(mn,mx,5),mx/10))
+            else
+                set(c,'ytick',linspace(0,1,5),'yticklabel',round(linspace(mn*100,mx*100,5)))
+            end
+        end
+        
+
     end
     
 end
