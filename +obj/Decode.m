@@ -83,7 +83,7 @@ classdef Decode < dj.Computed
     methods
         function [Data, Stims, info, Unit_ids] = getData(self,key,bin,stim_split)
             
-            if nargin<3
+            if nargin<3 || isempty(bin)
                 bin = fetch1(obj.DecodeOpt & key, 'binsize');
             end
             
@@ -404,7 +404,11 @@ classdef Decode < dj.Computed
                 idx = double(uint8(floor(((mi-mn)/(mx - mn))*0.99*size(colors,1)))+1);
                 plotMask(anatomy.Masks & ['brain_area="' areas{iarea} '"'],colors(idx,:),sum(~isnan(MI{iarea})))
             end
+            if nargin>1 && norm
             set(c,'ytick',linspace(0,1,5),'yticklabel',roundall(linspace(mn,mx,5),mx/10))
+            else
+                set(c,'ytick',linspace(0,1,5),'yticklabel',round(linspace(mn*100,mx*100,5)))
+            end
         end
         
         function params = plotCells(self, varargin)
