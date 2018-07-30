@@ -61,7 +61,7 @@ classdef ReDim < dj.Computed
             
             % prefilter data
             if gwin>1
-                Data = convn(Data,gausswin(gwin)','same');
+                Data = convn(Data,gausswin(gwin)','same','spline');
             end
             
             % do it
@@ -116,7 +116,7 @@ classdef ReDim < dj.Computed
             Traces(isnan(Traces))=0;
         end
         
-        function plot(self,varargin)
+        function params = plot(self,varargin)
             
             params.classes = [];
             params.tbin = 3;
@@ -124,25 +124,43 @@ classdef ReDim < dj.Computed
             params.colormap = @(x) cbrewer('qual','Set1',x);
             params.play = true;
             params.markersize = 2;
+            params.linewidth = 2;
             params.time = false;
             params.dec_opt = 1;
             params.contrast = 1;
             params.dims = [1 2 3];
             params.fig_color = [1 1 1];
+            params.trials =[];
+            params.figure = [];
+            params.seed = 'random';
             
             params = getParams(params,varargin);
             
             % setup figure
-            hf = figure('units','normalized');
-            f_pos = get(hf,'outerposition');
-            set(hf,'color',params.fig_color)
+            if isempty(params.figure)
+                hf = figure('units','normalized');
+                f_pos = get(hf,'outerposition');
+                set(hf,'color',params.fig_color)
+            else
+                hf = params.figure;
+            end
+          
             
+             rseed = RandStream('mt19937ar','Seed',params.seed );
+             
             % get data
             [trials,mappedX,bins] = fetch1(self,'trials','mapped','bins');
             assert(max(params.dims)<=size(mappedX,2),'Dimentions requested do not exist')
             
             % get classes
             uTrials = unique(trials);
+            if ~isempty(params.trials)
+%                 idx =randperm(rseed,length(uTrials),params.trials);
+%                uTrials = uTrials(idx);
+                mx_trials = params.trials;
+            else
+                mx_trials = length(uTrials);
+            end
             [all_trials, movie_name] = fetchn(stimulus.Trial * stimulus.Clip & self,'trial_idx','movie_name');
             [common_trials, trial_idx] = intersect(all_trials,uTrials);
             movies = movie_name(trial_idx);
@@ -172,7 +190,7 @@ classdef ReDim < dj.Computed
             
             % loop through each trial and plot
             ax = [];
-            for itrial = 1:length(uTrials)
+            for itrial = 1:mx_trials
                 
                 % only plot requested classes
                 mov_idx = strcmp(movies{common_trials==uTrials(itrial)},params.classes);
@@ -200,7 +218,7 @@ classdef ReDim < dj.Computed
                         ax(itrial) = surface([xx; xx],[yy; yy],[zz; zz],[col;col],...
                             'facecol','no',...
                             'edgecol','interp',...
-                            'linew',1,'facealpha',0.5,'edgealpha',0.5);
+                            'linew',params.linewidth,'facealpha',0.5,'edgealpha',0.5);
                     case 'score'
                         dec_mov_idx = strcmp(params.classes(mov_idx),dec_classes(dec_idx,:));
                         dec_trial_idx = trial_info.trials{dec_idx,dec_mov_idx}==uTrials(itrial);
@@ -224,7 +242,7 @@ classdef ReDim < dj.Computed
                 for iclass =1:length(params.classes)
                     axl(iclass) = ax(find(strcmp(movies,params.classes{iclass}),1,'first'));
                 end
-                l = legend(axl,params.classes);
+                params.l = legend(axl,params.classes);
             end
             
             

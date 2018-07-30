@@ -352,9 +352,12 @@ classdef Decode < dj.Computed
         
         function plotMasks(self,norm,target_cell_num)
             
+            params.fontsize = 10;
+            
             % get data
             [perf, area, trial_info] = fetchn(self & 'brain_area <> "unknown"',...
                 'p','brain_area','trial_info');
+            %%
             areas = unique(area);
             MI = cell(size(areas));
             for iarea = 1:length(areas)
@@ -411,7 +414,7 @@ classdef Decode < dj.Computed
             plotMask(anatomy.Masks)
             colormap parula
             c = colorbar;
-            ylabel(c,labl,'Rotation',-90,'VerticalAlignment','baseline')
+            ylabel(c,labl,'Rotation',-90,'VerticalAlignment','baseline','fontsize',params.fontsize)
             
             
             mx = max(cellfun(@nanmean,MI));
@@ -423,16 +426,19 @@ classdef Decode < dj.Computed
                 plotMask(anatomy.Masks & ['brain_area="' areas{iarea} '"'],colors(idx,:),sum(~isnan(MI{iarea})))
             end
             if nargin>1 && norm
-            set(c,'ytick',linspace(0,1,5),'yticklabel',roundall(linspace(mn,mx,5),mx/10))
+                set(c,'ytick',linspace(0,1,5),'yticklabel',roundall(linspace(mn,mx,5),10^-round(abs(log10(mn)))))
             else
                 set(c,'ytick',linspace(0,1,5),'yticklabel',round(linspace(mn*100,mx*100,5)))
             end
+            
+            %%
         end
         
         function params = plotCells(self, varargin)
             params.mx_cell = [];
             params.mi = false;
             params.figure = [];
+            params.fontsize = 10;
             
             params = getParams(params,varargin);
             
@@ -485,8 +491,8 @@ classdef Decode < dj.Computed
                 ylabel('Mutual Information (bits)')
             end
             xlabel('# of Cells')
-            set(params.l,'box','off','location','northwest')
-            
+            set(params.l,'box','off','location','northwest','fontsize',params.fontsize)
+            set(gca,'fontsize',params.fontsize)
         end
         
         function perf = getPerformance(self,mi)

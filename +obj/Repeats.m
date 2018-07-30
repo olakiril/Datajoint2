@@ -134,7 +134,7 @@ classdef Repeats < dj.Computed
             
         end
         
-        function plot(obj,key,bin,varargin)
+        function plot(self,key,bin,varargin)
             
             params.contrast = 0.5;
             params.gap = 50;
@@ -145,21 +145,20 @@ classdef Repeats < dj.Computed
             params = getParams(params,varargin);
             
             if nargin<3 || isempty(bin)
-                bin = fetch1(obj.RepeatsOpt & key, 'binsize');
+                bin = fetch1(self.RepeatsOpt & key, 'binsize');
             end
             
             if nargin<2 || isempty(key)
-                keys = fetch(obj);
+                keys = fetch(self);
             else
-                keys = fetch(obj.Repeats & key);
+                keys = fetch(self & key);
             end
             for key = keys'
-                try
-                    [Data, Stims] = getData(obj,key,bin); % [Cells, Time, Trials]
+                    [Data, Stims] = getData(self,key,bin); % [time,repeats,uni_stims,cells]
                     dat= []; s = []; im = [];
                     fig = figure;
-                    for iobj = 1:length(Data)
-                        data = Data{iobj};
+                    for iobj = 1:size(Data,3)
+                        data = permute(squeeze(Data(:,:,iobj,:)),[3,1,2]); % [Cells, Time, Trials]
                         if params.rand; data = data(randperm(size(data,1)),:,:);end
                         if params.trials; data = permute(data,[3 2 1]);end
                         trial_num(iobj) = size(data,3);
@@ -170,16 +169,15 @@ classdef Repeats < dj.Computed
                     end
                     step = floor(params.scroll_step/100*min(dat_sz));
                     plotData
-                end
             end
             
             function plotData
                 clf
                 set(fig,'WindowScrollWheelFcn', @scroll,'KeyPressFcn',@dispkeyevent)
                 s = [];
-                for iobj = 1:length(Data)
-                    s(iobj) = subplot(1,length(Data),iobj);
-                    im(iobj) = imagesc(dat{iobj}'.^params.contrast);
+                for iobj = 1:length(dat)
+                    s(iobj) = subplot(1,length(dat),iobj);
+                    im(iobj) = imagesc(abs(dat{iobj}'.^params.contrast));
                     
                     colormap (1 - gray)
                     step_per_cell = trial_num(iobj)+floor(params.gap/100*trial_num(iobj));
@@ -188,8 +186,8 @@ classdef Repeats < dj.Computed
                         'box','off',...
                         'xtick',0:1000/bin: bin_num(iobj),...
                         'xticklabel',0:1:bin/1000* bin_num(iobj))
-                    
-                    title(sprintf('Movie: %s\nclip: %d',Stims{iobj,1},Stims{iobj,2}));
+                    [mov,clip] = fetch1(stimulus.Clip & Stims(iobj),'movie_name','clip_number');
+                    title(sprintf('Movie: %s\nclip: %d',mov,clip));
                     if iobj ==1
                         xlabel('Time (sec)')
                         if params.trials
