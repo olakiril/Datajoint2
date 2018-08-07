@@ -4,9 +4,9 @@
 -> fuse.ScanSetUnit
 -> stimulus.Clip
 ---
-r                    : longblob                      # reliability
-r_shuffle            : longblob                      # chance
-p_shuffle            : longblob                      # p value
+r                    : float                      # reliability
+r_shuffle            : float                      # chance
+p_shuffle            : float                      # p value
 %}
 
 classdef RepeatsUnit < dj.Computed

@@ -101,9 +101,9 @@ classdef Repeats < dj.Computed
             % get stuff
             [Traces, caTimes, keys] = getAdjustedSpikes(fuse.ActivityTrace & key,'soma'); % [time cells]
             Traces = single(Traces);
-            trials = stimulus.Trial &  (stimulus.Clip & (stimulus.Movie & 'movie_class="object3d"')) & key;
+            trials = stimulus.Trial &  (stimulus.Clip & (stimulus.Movie & 'movie_class="object3d"')) & (obj.Repeats & key);
             [flip_times, cond_hash] = fetchn(...
-                trials * (stimulus.Clip & (aggr(stimulus.Clip, stimulus.Trial & key, 'count(*)->n') & 'n>1')),...
+                trials * (stimulus.Clip & (aggr(stimulus.Clip, stimulus.Trial & (obj.Repeats & key), 'count(*)->n') & 'n>1')),...
                 'flip_times','condition_hash');
             
             % filter out incomplete trials
@@ -141,6 +141,8 @@ classdef Repeats < dj.Computed
             params.scroll_step = 3;
             params.trials = 0;
             params.rand = 0;
+            params.sort = 0;
+            params.prctile = 0;
             
             params = getParams(params,varargin);
             
@@ -149,16 +151,21 @@ classdef Repeats < dj.Computed
             end
             
             if nargin<2 || isempty(key)
-                keys = fetch(self);
-            else
-                keys = fetch(self & key);
-            end
-            for key = keys'
+                key = fetch(self);
+%             else
+%                 keys = fetch(self & key);
+             end
+%             for key = keys'
                     [Data, Stims] = getData(self,key,bin); % [time,repeats,uni_stims,cells]
                     dat= []; s = []; im = [];
                     fig = figure;
                     for iobj = 1:size(Data,3)
                         data = permute(squeeze(Data(:,:,iobj,:)),[3,1,2]); % [Cells, Time, Trials]
+                        if params.sort
+                            [~,mxidx] = max(nanmean(data,3),[],2);
+                            [~,sidx] = sort(mxidx,'ascend');
+                            data = data(sidx,:,:);
+                        end
                         if params.rand; data = data(randperm(size(data,1)),:,:);end
                         if params.trials; data = permute(data,[3 2 1]);end
                         trial_num(iobj) = size(data,3);
@@ -169,7 +176,7 @@ classdef Repeats < dj.Computed
                     end
                     step = floor(params.scroll_step/100*min(dat_sz));
                     plotData
-            end
+%             end
             
             function plotData
                 clf
