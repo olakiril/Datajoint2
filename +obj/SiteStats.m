@@ -3,23 +3,23 @@
 -> fuse.ScanDone
 -> anatomy.Area
 -> obj.SiteStatsOpt
--> stimulus.MovieClass
+-> stimulus.Movie
 ---
 -> stimulus.Sync
-neurons               : smallint           #
-distIn                : float              # average eucleadian distance
-distTrans             : float              # across object identity average eucleadian distance
-distCis               : float              # within object identity average eucleadian distance
-corr                  : float              #
-mean                  : float              # mean
-variance              : float              # variance
-tempwin               : float              # response temporal window
-pspars                : float              # population sparseness
-pzero                 : float              # probability of zero neurons responding
-pkurt                 : float              # kurtosis
-lspars                : float              # lifetime sparseness
-lzero                 : float              # probability of zero response
-lkurt                 : float              # lifetime kurtosis
+neurons               : smallint            # number of neurons
+dist_in               : double              # average eucleadian distance
+dist_trans            : double              # across object identity average eucleadian distance
+dist_cis              : double              # within object identity average eucleadian distance
+corr                  : double              # average total correlation across neurons
+mean                  : double              # mean
+variance              : double              # variance
+tempwin               : double              # response temporal window
+pspars                : double              # population sparseness
+pzero                 : double              # probability of zero neurons responding
+pkurt                 : double              # kurtosis
+lspars                : double              # lifetime sparseness
+lzero                 : double              # probability of zero response
+lkurt                 : double              # lifetime kurtosis
 %}
 
 classdef SiteStats < dj.Computed
@@ -43,21 +43,21 @@ classdef SiteStats < dj.Computed
                 
                 key.neurons = size(traces,1);
                 key.mean = nanmean(traces(:));
-                key.variance = mean(nanvar(traces,[],2));
+                key.variance = nanmean(nanvar(traces,[],2));
                 key.tempwin = calcResponseWindow(traces');
                 c =  corr(traces');
                 key.corr = nanmean(c(logical(tril(ones(size(c)),-1))));
-                key.distIn = nanmean(pdist(traces));
+                key.dist_in = nanmean(pdist(traces'));
                 group = ObjID==ObjID(iStim);
-                key.distTrans = nanmean(reshape(pdist2(traces',cell2mat(Traces(~group))'),[],1));
+                key.dist_trans = nanmean(reshape(pdist2(traces',cell2mat(Traces(~group))'),[],1));
                 group(iStim) = false;
-                key.distCis = nanmean(reshape(pdist2(traces',cell2mat(Traces(group))'),[],1));
-                key.pspars = nanmean(sparseness(traces'));
-                key.pzero = nanmean(sparseness(traces','type','pzero'));
-                key.pkurt = nanmean(sparseness(traces','type','kurtosis'));
-                key.lspars = nanmean(sparseness(traces));
-                key.lzero = nanmean(sparseness(traces,'type','pzero'));
-                key.lkurt = nanmean(sparseness(traces,'type','kurtosis'));
+                key.dist_cis = nanmean(reshape(pdist2(traces',cell2mat(Traces(group))'),[],1));
+                key.pspars = nanmean(sparseness(traces));
+                key.pzero = nanmean(sparseness(traces,'type','pzero'));
+                key.pkurt = nanmean(sparseness(traces,'type','kurtosis'));
+                key.lspars = nanmean(sparseness(traces'));
+                key.lzero = nanmean(sparseness(traces','type','pzero'));
+                key.lkurt = nanmean(sparseness(traces','type','kurtosis'));
                 
                 % insert
                 key.movie_name = Stims{iStim};
@@ -71,7 +71,7 @@ classdef SiteStats < dj.Computed
         function [Data, Stims, info, Unit_ids] = getData(self,key,bin,stim_split)
             
             if nargin<3 || isempty(bin)
-                bin = fetch1(obj.DecodeOpt & key, 'binsize');
+                bin = fetch1(obj.SiteStatsOpt & key, 'binsize');
             end
             
             % get traces
