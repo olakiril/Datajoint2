@@ -260,7 +260,7 @@ classdef Decode < dj.Computed
                     case 'single'
                         cell_num = diag(true(size(cell_idx)));
                     case 'fixed'
-                        cell_num = zeros(1,numel(cell_idx));
+                        cell_num = false(1,numel(cell_idx));
                         cell_num(1:neurons) = true;
                     case 'rf'
                         % get all rfs to compute center
