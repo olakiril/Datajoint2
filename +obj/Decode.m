@@ -180,6 +180,7 @@ classdef Decode < dj.Computed
                 fetch1(obj.DecodeOpt & key,...
                 'decoder','k_fold','shuffle','repetitions','select_method','dec_params','neurons');
             if ~isempty(dec_params);dec_params = [',' dec_params];end
+            if neurons>size(Data{1},1); error('Recording only has %d neurons!',size(Data{1},1));end
             
             PP = cell(repetitions,1); RR = PP;Cells = [];SC = PP;
             fprintf('Rep:')
