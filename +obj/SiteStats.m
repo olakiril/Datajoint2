@@ -37,6 +37,13 @@ classdef SiteStats < dj.Computed
             [Traces, Stims] = getData(self,key); % [Cells, Obj, Trials]
             ObjID = cellfun(@(x) str2num(x{1}),regexp(Stims,'\d(?=\w*v\d)','match'));
             
+            % get framerate
+            if count(meso.ScanInfo & key)
+                fps = fetch1(meso.ScanInfo & key,'fps');
+            else
+                fps = fetch1(reso.ScanInfo & key,'fps');
+            end
+            
             % Loop through stimuli
             for iStim = 1:length(Stims)
                 traces = Traces{iStim};
@@ -44,7 +51,7 @@ classdef SiteStats < dj.Computed
                 key.neurons = size(traces,1);
                 key.mean = nanmean(traces(:));
                 key.variance = nanmean(nanvar(traces,[],2));
-                key.tempwin = calcResponseWindow(traces');
+                key.tempwin = calcResponseWindow(traces',fps);
                 c =  corr(traces');
                 key.corr = nanmean(c(logical(tril(ones(size(c)),-1))));
                 key.dist_in = nanmean(pdist(traces'));
@@ -125,6 +132,39 @@ classdef SiteStats < dj.Computed
                     info.names{istim} = reshape(repmat(s_names(st_idx),1,size(dat,2))',[],1);
                     Data{istim} = reshape(dat,size(Traces,1),[]);
                 end
+            end
+        end
+        
+        function plot(self,type)
+            [data,brain_areas,movie_names, animal_ids] = fetchn(self,type,'brain_area','movie_name','animal_id');
+            un_areas = unique(brain_areas);
+            stim = cellfun(@(x) str2num(x{1}),regexp(movie_names,'\d(?=\w*v\d)','match'));
+            
+            is_trained = nan(size(stim));
+            for animal = fetch(mice.Mice & self,'animal_id')'
+                if count(beh.MovieClipCond & animal)
+                    tstim = cellfun(@(xx) str2num(cell2mat(xx)),regexp(unique(fetchn(beh.MovieClipCond & animal,'movie_name')),'\d(?=\w*v\d)','match'))';
+                else
+                    tstim = 0;
+                end
+                idx = animal_ids==animal.animal_id;
+                is_trained(idx) = any(stim(idx)'==tstim');
+            end
+            R = [];
+            for iarea = 1:length(un_areas)
+                for itrained = 1:max(is_trained)+1
+                   R{iarea,itrained} = data(strcmp(un_areas{iarea},brain_areas) & is_trained==itrained-1); 
+                end
+            end
+            
+            % plot
+            figure
+            barfun(R)
+            set(gca,'xtick',1:size(R,1),'xticklabel',un_areas)
+            ylabel(type)
+            if max(is_trained)>0
+                l = legend({'Naive','Trained'});
+                set(l,'box','off')
             end
         end
     end

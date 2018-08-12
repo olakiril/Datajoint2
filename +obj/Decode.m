@@ -176,9 +176,9 @@ classdef Decode < dj.Computed
             % output: {classes}[reps trials]
             
             % get decoder parameters
-            [decoder,k_fold,shuffle,repetitions,select_method, dec_params] = ...
+            [decoder,k_fold,shuffle,repetitions,select_method, dec_params, neurons] = ...
                 fetch1(obj.DecodeOpt & key,...
-                'decoder','k_fold','shuffle','repetitions','select_method','dec_params');
+                'decoder','k_fold','shuffle','repetitions','select_method','dec_params','neurons');
             if ~isempty(dec_params);dec_params = [',' dec_params];end
             
             PP = cell(repetitions,1); RR = PP;Cells = [];SC = PP;
@@ -259,6 +259,9 @@ classdef Decode < dj.Computed
                         cell_num = true(size(cell_idx));
                     case 'single'
                         cell_num = diag(true(size(cell_idx)));
+                    case 'fixed'
+                        cell_num = zeros(1,numel(cell_idx));
+                        cell_num(1:neurons) = true;
                     case 'rf'
                         % get all rfs to compute center
                         [x,y] = getDegrees(tune.DotRFMap & (fuse.ScanDone & key) & 'p_value<0.05',1);
