@@ -43,7 +43,9 @@ classdef Perf < dj.Computed
     
     methods
         function plot(self)
-            mice = fetchn(beh.SetupInfo & self & 'animal_id>0','animal_id');
+%             mice = fetchn(beh.SetupInfo & self & 'animal_id>0','animal_id');
+            mice = unique(fetchn(self & 'animal_id>0','animal_id'));
+
             figure
             for imouse = 1:length(mice)
                 subplot(ceil(sqrt(length(mice))),ceil(sqrt(length(mice))),imouse)

@@ -33,7 +33,7 @@ classdef Repeats < dj.Computed
             import_keys = cell(size(Data,4),1);
             rl_sh = cell(size(Data,4),1);
             rl = cell(size(Data,4),1);
-            parfor icell = 1:size(Data,4)
+            for icell = 1:size(Data,4)
                 % shuffling
                 cell_traces = Data(:,:,:,icell); %[trials time stim]
                 rand_idx = cell2mat(arrayfun(@(x) randperm(numel(cell_traces)),1:shuffle,'uni',0)');
@@ -68,7 +68,7 @@ classdef Repeats < dj.Computed
                                 r_c(irep,:) = diag(corr(r_traceZ(:,:,irep)',mean(r_traceZ(:,:,idx),3)'));
                             end
                             rl{icell} = nanmean(c);
-                            rl_sh{icell} = nanmean(r_c,2);
+                            rl_sh{icell} = nanmean(r_c);
                     end
                     
                     % clear tuple
@@ -101,9 +101,12 @@ classdef Repeats < dj.Computed
             % get stuff
             [Traces, caTimes, keys] = getAdjustedSpikes(fuse.ActivityTrace & key,'soma'); % [time cells]
             Traces = single(Traces);
-            trials = stimulus.Trial &  (stimulus.Clip & (stimulus.Movie & 'movie_class="object3d"')) & (obj.Repeats & key);
-            [flip_times, cond_hash] = fetchn(...
-                trials * (stimulus.Clip & (aggr(stimulus.Clip, stimulus.Trial & (obj.Repeats & key), 'count(*)->n') & 'n>1')),...
+            trials = stimulus.Trial &  (stimulus.Clip & (stimulus.Movie & 'movie_class="object3d"')) & key;% (obj.Repeats & key);
+%             [flip_times, cond_hash] = fetchn(...
+%                 trials * (stimulus.Clip & (aggr(stimulus.Clip, stimulus.Trial & (obj.Repeats & key), 'count(*)->n') & 'n>1')),...
+%                 'flip_times','condition_hash');
+                        [flip_times, cond_hash] = fetchn(...
+                trials * (stimulus.Clip & (aggr(stimulus.Clip, stimulus.Trial & key, 'count(*)->n') & 'n>1')),...
                 'flip_times','condition_hash');
             
             % filter out incomplete trials
@@ -134,7 +137,37 @@ classdef Repeats < dj.Computed
             
         end
         
-        function plot(self,key,bin,varargin)
+        function plot(self)
+            [reliability, brain_areas, movie_names] = fetchn(obj.RepeatsUnit * anatomy.AreaMembership * stimulus.Clip & self,'r','brain_area','movie_name');
+            un_areas = unique(brain_areas);
+            stim = cellfun(@(x) str2num(x{1}),regexp(movie_names,'\d(?=\w*v\d)','match'));
+            
+            if count(beh.MovieClipCond & (mice.Mice & self))
+                tstim = cellfun(@(xx) str2num(cell2mat(xx)),regexp(unique(fetchn(beh.MovieClipCond & (mice.Mice & self),'movie_name')),'\d(?=\w*v\d)','match'))';
+            else
+                tstim = 0;
+            end
+            is_trained = any(stim'==tstim')';
+
+            R = [];
+            for iarea = 1:length(un_areas)
+                for itrained = 1:max(is_trained)+1
+                   R{iarea,itrained} = reliability(strcmp(un_areas{iarea},brain_areas) & is_trained==itrained-1); 
+                end
+            end
+            
+            % plot
+            figure
+            barfun(R,'barwidth',0.9,'range',0.45)
+            set(gca,'xtick',1:size(R,1),'xticklabel',un_areas)
+            ylabel(fetch1(obj.RepeatsOpt & self,'method'))
+            if max(is_trained)>0
+                l = legend({'Naive','Trained'});
+                set(l,'box','off')
+            end
+        end
+        
+        function plotTrace(self,key,bin,varargin)
             
             params.contrast = 0.5;
             params.gap = 50;
@@ -147,7 +180,7 @@ classdef Repeats < dj.Computed
             params = getParams(params,varargin);
             
             if nargin<3 || isempty(bin)
-                bin = fetch1(self.RepeatsOpt & key, 'binsize');
+                bin = fetch1(obj.RepeatsOpt & key, 'binsize');
             end
             
             if nargin<2 || isempty(key)

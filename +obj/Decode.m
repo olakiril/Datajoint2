@@ -499,15 +499,16 @@ classdef Decode < dj.Computed
             set(gca,'fontsize',params.fontsize)
         end
         
-        function perf = getPerformance(self,mi)
+        function perf = getPerformance(self,mi,p)
             
             if nargin>1 && mi
                 fun = @(x) obj.Decode.getMI(x);
             else
                 fun = @(x) nanmean(x);
             end
-            
-            p = fetchn(self,'p');
+            if nargin<3 || ~isempty(p)
+                p = fetchn(self,'p');
+            end
             perf = cell(length(p),1);
             for ikey = 1:length(p)
                 for icell = 1:size(p{ikey}{1},3)

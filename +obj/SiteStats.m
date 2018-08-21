@@ -58,7 +58,11 @@ classdef SiteStats < dj.Computed
                 group = ObjID==ObjID(iStim);
                 key.dist_trans = nanmean(reshape(pdist2(traces',cell2mat(Traces(~group))'),[],1));
                 group(iStim) = false;
-                key.dist_cis = nanmean(reshape(pdist2(traces',cell2mat(Traces(group))'),[],1));
+                if any(group)
+                    key.dist_cis = nanmean(reshape(pdist2(traces',cell2mat(Traces(group))'),[],1));
+                else
+                    key.dist_cis = [];
+                end
                 key.pspars = nanmean(sparseness(traces));
                 key.pzero = nanmean(sparseness(traces,'type','pzero'));
                 key.pkurt = nanmean(sparseness(traces,'type','kurtosis'));
@@ -136,7 +140,7 @@ classdef SiteStats < dj.Computed
         end
         
         function plot(self,type)
-            [data,brain_areas,movie_names, animal_ids] = fetchn(self,type,'brain_area','movie_name','animal_id');
+            [data,brain_areas,movie_names, animal_ids,neurons] = fetchn(self,type,'brain_area','movie_name','animal_id','neurons');
             un_areas = unique(brain_areas);
             stim = cellfun(@(x) str2num(x{1}),regexp(movie_names,'\d(?=\w*v\d)','match'));
             
@@ -153,13 +157,13 @@ classdef SiteStats < dj.Computed
             R = [];
             for iarea = 1:length(un_areas)
                 for itrained = 1:max(is_trained)+1
-                   R{iarea,itrained} = data(strcmp(un_areas{iarea},brain_areas) & is_trained==itrained-1); 
+                   R{iarea,itrained} = data(strcmp(un_areas{iarea},brain_areas) & is_trained==itrained-1)/mean(neurons); 
                 end
             end
             
             % plot
             figure
-            barfun(R)
+            barfun(R,'barwidth',0.9,'range',0.45)
             set(gca,'xtick',1:size(R,1),'xticklabel',un_areas)
             ylabel(type)
             if max(is_trained)>0
