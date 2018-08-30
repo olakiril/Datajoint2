@@ -20,7 +20,8 @@ classdef Sync < dj.Imported
     methods (Access=protected)
         function makeTuples(obj,key)
             
-            [file, dur,it,file_name] = fetch1(olf.Session & key,'file_name','pulse_duration','intertrial_interval','file_name');
+            [file, dur,it,file_name] = fetch1(olf.Session & key,...
+                'file_name','pulse_duration','intertrial_interval','file_name');
             file_key =[];
             file_key.animal_id = key.mouse_id;
             file_key.filename = file_name;
@@ -38,7 +39,7 @@ classdef Sync < dj.Imported
             sz = size(reader);
             
             % get Data
-            data_phd = reader(:,:,sz(3),:,:);
+            data_phd = reader(:,:,find(reader.channels==3),:,:);
             
             % filter photodiode
             key.trials = findTrials(obj,data_phd,reader.fps,dur,sz(4),mxtrial,it);
