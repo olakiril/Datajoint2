@@ -9,7 +9,7 @@ trace             : mediumblob           # raw respiration signal
 %}
 
 
-classdef RespRaw < dj.Imported
+classdef RespiRaw < dj.Imported
     
     properties
         keySource = experiment.Scan & experiment.AutoProcessing & proj(olf.Session & 'session_timestamp>"2018-08-15" AND mouse_id>30025','mouse_id->animal_id')
