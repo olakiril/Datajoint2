@@ -38,7 +38,7 @@ classdef RespiRaw < dj.Imported
             y_pixel_bin = round(round(100/(reader.fps * sz(4)))/2)*2;
             assert(mod(sz(1),y_pixel_bin)==0,sprintf('%d pixels not devided by %d',sz(1),y_pixel_bin))
             key.trace = reshape(nanmean(reshape(data_phd,sz(1)/y_pixel_bin,y_pixel_bin,[]),1),[],1);
-            key.trace_fs = reader.fps*sz(4)*4;
+            key.trace_fs = reader.fps*sz(4)*y_pixel_bin;
             key.fps = reader.fps;
             key.frames = sz(5);
             
