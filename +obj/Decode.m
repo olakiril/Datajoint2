@@ -101,16 +101,16 @@ classdef Decode < dj.Computed
             X = @(t) interp1(caTimes-caTimes(1), Traces, t, 'linear', 'extrap');  % traces indexed by time
             
             % fetch stimuli without repeats
-            [flip_times, trial_idxs] = fetchn(...
-                stimulus.Trial &  ...
+            trial_obj = stimulus.Trial &  ...
                 ((stimulus.Clip & (stimulus.Movie & 'movie_class="object3d" OR movie_class="multiobjects"')) - ...
-                (aggr(stimulus.Clip , stimulus.Trial & key, 'count(*)->n') & 'n>1')) & key,...
-                'flip_times','trial_idx','ORDER BY trial_idx');
+                (aggr(stimulus.Clip , stimulus.Trial & key, 'count(*)->n') & 'n>1')) & key;
+            [flip_times, trial_idxs, trial_keys] = fetchn(...
+                trial_obj,'flip_times','trial_idx','ORDER BY trial_idx');
             ft_sz = cellfun(@(x) size(x,2),flip_times);
             tidx = ft_sz>=prctile(ft_sz,99);
             trial_idxs = trial_idxs(tidx);
             flip_times = cell2mat(flip_times(tidx));
-            Stims = unique(fetchn(stimulus.Clip &  (stimulus.Trial & key),'movie_name'));
+            Stims = unique(fetchn(stimulus.Clip & trial_obj,'movie_name'));
             
             % subsample traces
             Traces = permute(X(flip_times - caTimes(1)),[2 3 1]);
@@ -180,7 +180,7 @@ classdef Decode < dj.Computed
                 fetch1(obj.DecodeOpt & key,...
                 'decoder','k_fold','shuffle','repetitions','select_method','dec_params','neurons');
             if ~isempty(dec_params);dec_params = [',' dec_params];end
-            if neurons>size(Data{1},1); error('Recording only has %d neurons!',size(Data{1},1));end
+            
             
             PP = cell(repetitions,1); RR = PP;Cells = [];SC = PP;
             fprintf('Rep:')
@@ -209,10 +209,15 @@ classdef Decode < dj.Computed
                     rseed.reset; % ensures same time randomization for index generation
                     data_idx = cellfun(@(x) randperm(rseed,size(x,2),msz),Data,'uni',0);% create bin index
                 else % randomize trials
+                    % equalize by undersampling shorter class & randomize trial sequence
+                    msz = min(cellfun(@(x) size(x,2),test_Data)); % calculate minimum class length
+                    test_bin_sz = floor(msz/bins); % calculate fold bin size and recompute minimum length of data
+                    msz = test_bin_sz*bins;
+                    
                     rseed2 = RandStream('mt19937ar','Seed',repetitions+irep);
-                    test_data = cellfun(@(x) x(:,randperm(rseed,size(x,2))),test_Data,'uni',0);
+                    test_data = cellfun(@(x) x(:,randperm(rseed2,size(x,2),msz)),test_Data,'uni',0);
                     rseed2.reset; % ensures same time randomization for index generation
-                    data_idx = cellfun(@(x) randperm(rseed2,size(x,2)),test_Data,'uni',0);
+                    data_idx = cellfun(@(x) randperm(rseed2,size(x,2),msz),test_Data,'uni',0);
                 end
                 
                 % make group identities & build indexes
@@ -222,16 +227,15 @@ classdef Decode < dj.Computed
                     test_groups{iclass} = ones(1,size(test_data{iclass},2)) * iclass;
                     
                     % buld index
-                    test_bin_sz = floor(size(test_data{iclass},2)/bins);
                     for ibin = 1:bins
-                        train_idx{iclass}(1 + (ibin-1)*bin_sz:bin_sz*ibin) = ibin;
-                        test_idx{iclass}(1 + (ibin-1)*test_bin_sz:test_bin_sz*ibin) = ibin;
+                        train_idx{iclass}(1 + (ibin-1)*bin_sz      :      bin_sz*ibin) = ibin;
+                        test_idx{iclass} (1 + (ibin-1)*test_bin_sz : test_bin_sz*ibin) = ibin;
                     end
                 end
                 
                 % combine classes in one vector
                 data = cell2mat(data);
-                groups = cell2mat(groups);
+                groups = cell2mat(groups); %#ok<NASGU>
                 test_data = cell2mat(test_data);
                 test_groups = cell2mat(test_groups);
                 train_idx = cell2mat(train_idx);
@@ -239,7 +243,7 @@ classdef Decode < dj.Computed
                 data_idx = cell2mat(data_idx);
                 
                 % make nan zeros
-                data(isnan(data)) = prctile(data(:),1);
+                data(isnan(data)) = prctile(data(:),1); %#ok<NASGU>
                 
                 % create shuffled testing trials
                 test_sz = size(test_data,2);
@@ -261,6 +265,7 @@ classdef Decode < dj.Computed
                     case 'single'
                         cell_num = diag(true(size(cell_idx)));
                     case 'fixed'
+                        if neurons>size(Data{1},1); error('Recording only has %d neurons!',size(Data{1},1));end
                         cell_num = false(1,numel(cell_idx));
                         cell_num(1:neurons) = true;
                     case 'rf'
@@ -273,7 +278,8 @@ classdef Decode < dj.Computed
                         sel_units = [keys(idx).unit_id];
                         [~,unit_idx] = intersect(unit_ids(cell_idx),sel_units);
                         %indexes = [1 10:10:99 100:100:length(unit_idx) length(unit_idx)];
-                        indexes = 50;
+                        if neurons>size(Data{1},1); error('Recording only has %d neurons!',size(Data{1},1));end
+                        indexes = neurons;
                         cell_num = false(length(indexes),numel(cell_idx));
                         for i = 1:length(indexes)
                             cell_num(i,unit_idx(1:indexes(i))) = true;
@@ -288,10 +294,11 @@ classdef Decode < dj.Computed
                             rel(i) = nanmean((r(ids==un_ids(i))));
                         end
                         
-                        % select 50 most reliable
+                        % select nneurons most reliable
+                        if neurons>size(Data{1},1); error('Recording only has %d neurons!',size(Data{1},1));end
                         [~,sort_idx] = sort(rel,'descend');
                         sel_units = un_ids(sort_idx);
-                        indexes = 50;
+                        indexes = neurons;
                         [~,unit_idx] = intersect(unit_ids(cell_idx),sel_units(1:indexes));
                         cell_num = false(length(indexes),numel(cell_idx));
                         for i = 1:length(indexes)
@@ -307,27 +314,32 @@ classdef Decode < dj.Computed
                             rel(i) = nanmean((r(ids==un_ids(i))));
                         end
                         
-                        % select 50 with reliability above 0.2
+                        % select nneurons with reliability above 0.2
+                        if neurons>size(Data{1},1); error('Recording only has %d neurons!',size(Data{1},1));end
                         sel_units = un_ids(rel>0.2);
-                        indexes = 50;
+                        indexes = neurons;
                         [~,unit_idx] = intersect(unit_ids(cell_idx),sel_units);
                         cell_num = false(length(indexes),numel(cell_idx));
                         for i = 1:length(indexes)
-                            cell_num(i,unit_idx(randperm(length(unit_idx),indexes))) = true;
+                            cell_num(i,unit_idx(randperm(rseed,length(unit_idx),indexes))) = true;
                         end
                     otherwise
                         error('Cell selection method not supported')
                 end
                 
                 % classify
-                P = cellfun(@(x) nan(size(cell_num,1),size(x,2),'single'),Data,'uni',0);R = P;S = P;
+                P = cellfun(@(x) nan(size(cell_num,1),size(x,2),'single'),test_Data,'uni',0);R = P;S = P;
                 for icell = 1:size(cell_num,1) % For each cell permutation
                     for ibin = 1:bins          % For each fold
-                        idx = train_idx ~= ibin;
+                        % select training/testing bin
+                        idx = train_idx ~= ibin; %#ok<NASGU>
                         tidx = test_idx == ibin;
-                        %DEC = feval(decoder,data(cell_idx(cell_num(icell,:)),idx)', groups(idx)');
-                        DEC = eval(sprintf('%s(data(cell_idx(cell_num(icell,:)),idx)'', groups(idx)''%s)',decoder,dec_params));
-                        [pre, sc] = predict(DEC,test_data(cell_idx(cell_num(icell,:)),tidx)');
+                        
+                        % run classifier
+                        DEC = eval(sprintf('%s(data(cell_idx(cell_num(icell,:)),idx)'', groups(idx)''%s)',decoder,dec_params)); % train decoder with parameters
+                        [pre, sc] = predict(DEC,test_data(cell_idx(cell_num(icell,:)),tidx)'); % test decoder
+                        
+                        % Assign performance data into bins
                         p =  (pre == test_groups(tidx)');
                         r =  (pre == test_shfl_groups(tidx)');
                         for igroup = 1:group_num
@@ -361,7 +373,7 @@ classdef Decode < dj.Computed
             % get data
             [perf, area, trial_info] = fetchn(self & 'brain_area <> "unknown"',...
                 'p','brain_area','trial_info');
-            %%
+            
             areas = unique(area);
             MI = cell(size(areas));
             for iarea = 1:length(areas)
@@ -435,7 +447,6 @@ classdef Decode < dj.Computed
                 set(c,'ytick',linspace(0,1,5),'yticklabel',round(linspace(mn*100,mx*100,5)))
             end
             
-            %%
         end
         
         function params = plotCells(self, varargin)
