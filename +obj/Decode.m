@@ -208,6 +208,7 @@ classdef Decode < dj.Computed
                     test_data = data;
                     rseed.reset; % ensures same time randomization for index generation
                     data_idx = cellfun(@(x) randperm(rseed,size(x,2),msz),Data,'uni',0);% create bin index
+                    test_bin_sz = bin_sz;
                 else % randomize trials
                     % equalize by undersampling shorter class & randomize trial sequence
                     msz = min(cellfun(@(x) size(x,2),test_Data)); % calculate minimum class length
