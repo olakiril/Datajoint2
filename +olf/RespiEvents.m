@@ -148,6 +148,7 @@ classdef RespiEvents < dj.Imported
     methods
         function plot(self)
             [fps, data] = fetch1(olf.RespiRaw & self,'trace_fs','trace');
+            key = fetch(self);
             [lpd,p,t] = fetch1(self,'filtered_trace','peak_times','trough_times');
             figure
             plot((1:length(data))/fps,data)
@@ -158,7 +159,7 @@ classdef RespiEvents < dj.Imported
             l = legend({'Raw data','Filtered Data','Expiration start','Inspiration start'});
             ylabel('Breathing voltage')
             xlabel('Time(sec)')
-            set(gcf,'name','Animal 30027 session 1 scan 2 breathing detection example')
+            set(gcf,'name',sprintf('Animal %d session %d scan %d breathing',key.animal_id,key.session,key.scan_idx))
         end
     end
 end
