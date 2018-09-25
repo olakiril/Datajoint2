@@ -41,13 +41,14 @@ classdef Decode < dj.Computed
             % run the decoding
             P = cell(length(train_groups),length(train_groups{1})); P_shfl = P;score = P;
             for iGroup = 1:length(train_groups)
-                train_data = [];test_data = [];
+                train_data = [];test_data = []; selected_stim = false(size(Traces));
                 for iClass = 1:length(train_groups{iGroup})
                     tgroup = train_groups{iGroup}{iClass};
                     stim_idx = any(strcmp(...
                         repmat(tgroup,size(Stims,1),1),...
                         repmat(Stims,1,size(tgroup,2)))',1);
                     train_data{iClass} = cell2mat(Traces(stim_idx));
+                    selected_stim = any([selected_stim; stim_idx]);
                     if ~isempty(test_groups)
                         tgroup = test_groups{iGroup}{iClass};
                         stim_idx = any(strcmp(...
@@ -63,7 +64,7 @@ classdef Decode < dj.Computed
                 end
                 
                 [P(iGroup,:), P_shfl(iGroup,:), unit_idx(iGroup,:), score(iGroup,:)]= ...
-                    decodeMulti(self, train_data, test_data, key, Unit_ids, StimInfo);
+                    decodeMulti(self, train_data, test_data, key, Unit_ids, structfun(@(x) x(selected_stim),StimInfo,'uni',0));
             end
             
             % find unit ids from randomization indexes
@@ -176,9 +177,9 @@ classdef Decode < dj.Computed
             % output: {classes}[reps trials]
             
             % get decoder parameters
-            [decoder,k_fold,shuffle,repetitions,select_method, dec_params, neurons] = ...
+            [decoder,k_fold,shuffle,repetitions,select_method, dec_params, neurons,fold_selection] = ...
                 fetch1(obj.DecodeOpt & key,...
-                'decoder','k_fold','shuffle','repetitions','select_method','dec_params','neurons');
+                'decoder','k_fold','shuffle','repetitions','select_method','dec_params','neurons','fold_selection');
             if ~isempty(dec_params);dec_params = [',' dec_params];end
             
             
@@ -199,27 +200,32 @@ classdef Decode < dj.Computed
                 bin_sz = floor(msz/bins);
                 msz = bin_sz*bins;
                 
-                % undersample dataCe
-                rseed = RandStream('mt19937ar','Seed',irep);
-                data = cellfun(@(x) x(:,randperm(rseed,size(x,2),msz)),Data,'uni',0);
-                
-                % use data as test_data if not provided
-                if isempty(test_Data)
-                    test_data = data;
-                    rseed.reset; % ensures same time randomization for index generation
-                    data_idx = cellfun(@(x) randperm(rseed,size(x,2),msz),Data,'uni',0);% create bin index
-                    test_bin_sz = bin_sz;
-                    test_Data = Data;
-                else % randomize trials
-                    % equalize by undersampling shorter class & randomize trial sequence
-                    msz = min(cellfun(@(x) size(x,2),test_Data)); % calculate minimum class length
-                    test_bin_sz = floor(msz/bins); % calculate fold bin size and recompute minimum length of data
-                    msz = test_bin_sz*bins;
-                    
-                    rseed2 = RandStream('mt19937ar','Seed',repetitions+irep);
-                    test_data = cellfun(@(x) x(:,randperm(rseed2,size(x,2),msz)),test_Data,'uni',0);
-                    rseed2.reset; % ensures same time randomization for index generation
-                    data_idx = cellfun(@(x) randperm(rseed2,size(x,2),msz),test_Data,'uni',0);
+                switch fold_selection
+                    case 'random'
+                        % undersample dataCe
+                        rseed = RandStream('mt19937ar','Seed',irep);
+                        data = cellfun(@(x) x(:,randperm(rseed,size(x,2),msz)),Data,'uni',0);
+
+                        % use data as test_data if not provided
+                        if isempty(test_Data)
+                            test_data = data;
+                            rseed.reset; % ensures same time randomization for index generation
+                            data_idx = cellfun(@(x) randperm(rseed,size(x,2),msz),Data,'uni',0);% create bin index
+                            test_bin_sz = bin_sz;
+                            test_Data = Data;
+                        else % randomize trials
+                            % equalize by undersampling shorter class & randomize trial sequence
+                            msz = min(cellfun(@(x) size(x,2),test_Data)); % calculate minimum class length
+                            test_bin_sz = floor(msz/bins); % calculate fold bin size and recompute minimum length of data
+                            msz = test_bin_sz*bins;
+
+                            rseed2 = RandStream('mt19937ar','Seed',repetitions+irep);
+                            test_data = cellfun(@(x) x(:,randperm(rseed2,size(x,2),msz)),test_Data,'uni',0);
+                            rseed2.reset; % ensures same time randomization for index generation
+                            data_idx = cellfun(@(x) randperm(rseed2,size(x,2),msz),test_Data,'uni',0);
+                        end
+                    case 'rotation'
+                        [~, Id] = histc(a,[-inf; quantile(a,bins-1)'; inf]);
                 end
                 
                 % make group identities & build indexes
@@ -520,7 +526,11 @@ classdef Decode < dj.Computed
                 fun = @(x) nanmean(x);
             end
             if nargin<3 || ~isempty(p)
-                p = fetchn(self,'p');
+                if ischar(p)
+                    p = fetchn(self,p);
+                else
+                    p = fetchn(self,'p');
+                end
             end
             perf = cell(length(p),1);
             for ikey = 1:length(p)

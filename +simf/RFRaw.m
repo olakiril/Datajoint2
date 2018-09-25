@@ -20,7 +20,7 @@ classdef RFRaw < dj.Computed
             responses = cell(length(movie_keys),1);
             parfor imovie=1:length(movie_keys)
                 
-                filename = export(stimulus.MovieClip & movie_keys(imovie), 'temp');
+                filename = exportMovie(stimulus.MovieClip & movie_keys(imovie), 'temp');
                 
                 vr = VideoReader(filename{1});
                
