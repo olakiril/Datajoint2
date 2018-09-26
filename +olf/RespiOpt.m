@@ -1,6 +1,6 @@
 %{
 #
-resp_opt             : int
+respi_opt             : int
 ---
 high_pass_fr             : double   #
 low_pass_fr              : double   #

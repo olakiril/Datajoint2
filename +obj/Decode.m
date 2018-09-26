@@ -20,7 +20,8 @@ classdef Decode < dj.Computed
     properties
         keySource  = (fuse.ScanDone * anatomy.Area & anatomy.AreaMembership)...
             * (obj.DecodeOpt & 'process = "yes"') ...
-            & (stimulus.Sync & (stimulus.Trial &  (stimulus.Clip & (stimulus.Movie & 'movie_class="object3d" OR movie_class="multiobjects"'))))
+            & (stimulus.Sync & (stimulus.Trial &  ...
+            (stimulus.Clip & (stimulus.Movie & 'movie_class="object3d" OR movie_class="multiobjects"'))))
     end
     
     methods(Access=protected)
@@ -29,7 +30,7 @@ classdef Decode < dj.Computed
             % get train & test groups
             [train_set,test_set] = fetch1(obj.DecodeOpt & key,'train_set','test_set');
             
-            % get DAta
+            % get Data
             [Traces, Stims, StimInfo, Unit_ids] = getData(self,key); % [Cells, Obj, Trials]
             [train_groups,test_groups] = getGroups(self,Stims,train_set,test_set);
             if ~isempty(test_groups)
@@ -38,44 +39,57 @@ classdef Decode < dj.Computed
                 assert(all(train_sz==test_sz),'Test groups must match train groups')
             end
             
-            % run the decoding
+            %Loop through each group of comparissons
             P = cell(length(train_groups),length(train_groups{1})); P_shfl = P;score = P;
             for iGroup = 1:length(train_groups)
-                train_data = [];test_data = []; selected_stim = false(size(Traces));
+                
+                % assign training & testing data and the stimulus information for each
+                train_data = [];test_data = [];
                 for iClass = 1:length(train_groups{iGroup})
+                    
+                    % Training Data
                     tgroup = train_groups{iGroup}{iClass};
                     stim_idx = any(strcmp(...
                         repmat(tgroup,size(Stims,1),1),...
                         repmat(Stims,1,size(tgroup,2)))',1);
                     train_data{iClass} = cell2mat(Traces(stim_idx));
-                    selected_stim = any([selected_stim; stim_idx]);
+                    train_info.bins{iGroup,iClass} = cell2mat(reshape(StimInfo.bins(stim_idx),[],1));
+                    train_info.trials{iGroup,iClass} = cell2mat(reshape(StimInfo.trials(stim_idx),[],1));
+                    train_info.clips{iGroup,iClass} = cell2mat(reshape(StimInfo.clips(stim_idx),[],1));
+                    names = cellfun(@(x) reshape(x,1,[]),StimInfo.names,'uni',0);
+                    train_info.names{iGroup,iClass} = [names{stim_idx}];
+                    
+                    % Testing Data
                     if ~isempty(test_groups)
                         tgroup = test_groups{iGroup}{iClass};
                         stim_idx = any(strcmp(...
                             repmat(tgroup,size(Stims,1),1),...
                             repmat(Stims,1,size(tgroup,2)))',1);
                         test_data{iClass} = cell2mat(Traces(stim_idx));
+                        test_info.bins{iGroup,iClass} = cell2mat(reshape(StimInfo.bins(stim_idx),[],1));
+                        test_info.trials{iGroup,iClass} = cell2mat(reshape(StimInfo.trials(stim_idx),[],1));
+                        test_info.clips{iGroup,iClass} = cell2mat(reshape(StimInfo.clips(stim_idx),[],1));
+                        names = cellfun(@(x) reshape(x,1,[]),StimInfo.names,'uni',0);
+                        test_info.names{iGroup,iClass} = [names{stim_idx}];
+                    else, test_info = train_info;
                     end
-                    info.bins{iGroup,iClass} = cell2mat(reshape(StimInfo.bins(stim_idx),[],1));
-                    info.trials{iGroup,iClass} = cell2mat(reshape(StimInfo.trials(stim_idx),[],1));
-                    info.clips{iGroup,iClass} = cell2mat(reshape(StimInfo.clips(stim_idx),[],1));
-                    names = cellfun(@(x) reshape(x,1,[]),StimInfo.names,'uni',0);
-                    info.names{iGroup,iClass} = [names{stim_idx}];
                 end
                 
+                % run the decoding
                 [P(iGroup,:), P_shfl(iGroup,:), unit_idx(iGroup,:), score(iGroup,:)]= ...
-                    decodeMulti(self, train_data, test_data, key, Unit_ids, structfun(@(x) x(selected_stim),StimInfo,'uni',0));
+                    decodeMulti(self, train_data, test_data, key, Unit_ids,...
+                    structfun(@(x) x(iGroup,:),train_info,'uni',0),structfun(@(x) x(iGroup,:),test_info,'uni',0));
             end
             
             % find unit ids from randomization indexes
-            info.units = cellfun(@(x) cellfun(@(xx) Unit_ids(xx),x,'uni',0),unit_idx,'uni',0);
+            test_info.units = cellfun(@(x) cellfun(@(xx) Unit_ids(xx),x,'uni',0),unit_idx,'uni',0);
             
             % insert
             key.p = P;
             key.p_shuffle = P_shfl;
             key.train_groups = train_groups;
             key.test_groups = test_groups;
-            key.trial_info = info;
+            key.trial_info = test_info;
             key.score = score;
             self.insert(key)
         end
@@ -90,7 +104,8 @@ classdef Decode < dj.Computed
             
             
             % get traces
-            [Traces, caTimes, keys] = getAdjustedSpikes(fuse.ActivityTrace & (anatomy.AreaMembership & key),'soma'); % [time cells]
+            [Traces, caTimes, keys] = getAdjustedSpikes(fuse.ActivityTrace &...
+                (anatomy.AreaMembership & key),'soma'); % [time cells]
             Unit_ids = [keys.unit_id];
             
             % get rid of nans
@@ -105,7 +120,7 @@ classdef Decode < dj.Computed
             trial_obj = stimulus.Trial &  ...
                 ((stimulus.Clip & (stimulus.Movie & 'movie_class="object3d" OR movie_class="multiobjects"')) - ...
                 (aggr(stimulus.Clip , stimulus.Trial & key, 'count(*)->n') & 'n>1')) & key;
-            [flip_times, trial_idxs, trial_keys] = fetchn(...
+            [flip_times, trial_idxs] = fetchn(...
                 trial_obj,'flip_times','trial_idx','ORDER BY trial_idx');
             ft_sz = cellfun(@(x) size(x,2),flip_times);
             tidx = ft_sz>=prctile(ft_sz,99);
@@ -147,9 +162,9 @@ classdef Decode < dj.Computed
             
             if isempty(train_set) % take all pairwise combinations of stimuli
                 Stims = combnk(Stims,2);
-                for igroup = 1:size(Stims,1)
+                for igr = 1:size(Stims,1)
                     for istim = 1:size(Stims,2)
-                        train_groups{igroup}{istim} = Stims(igroup,istim);
+                        train_groups{igr}{istim} = Stims(igr,istim);
                     end
                 end
                 test_groups = [];
@@ -171,22 +186,32 @@ classdef Decode < dj.Computed
             end
         end
         
-        function [PP, RR, Cells, SC] = decodeMulti(self,Data,test_Data, key, unit_ids, StimInfo)
+        function [PP, RR, Cells, SC] = decodeMulti(self,Data,test_Data, key, unit_ids, train_info, test_info)
             % performs a svm classification
             % data: {classes}[cells trials]
             % output: {classes}[reps trials]
             
             % get decoder parameters
-            [decoder,k_fold,shuffle,repetitions,select_method, dec_params, neurons,fold_selection] = ...
+            [decoder,k_fold,shuffle,repetitions,select_method, dec_params, neurons,fold_selection, binsize] = ...
                 fetch1(obj.DecodeOpt & key,...
-                'decoder','k_fold','shuffle','repetitions','select_method','dec_params','neurons','fold_selection');
-            if ~isempty(dec_params);dec_params = [',' dec_params];end
+                'decoder','k_fold','shuffle','repetitions','select_method',...
+                'dec_params','neurons','fold_selection','binsize');
             
+            
+            % define decoder function
+            if ~isempty(dec_params);dec_params = [',' dec_params];end
+            decoder_func = eval(sprintf('@(X,IDs) %s(X, IDs%s)',decoder,dec_params));
+            
+            % get test data
+            if isempty(test_Data)
+                test_Data = Data;
+            end
             
             PP = cell(repetitions,1); RR = PP;Cells = [];SC = PP;
             fprintf('Rep:')
             for irep = 1:repetitions
                 fprintf(' #%d ',irep)
+                rseed = RandStream('mt19937ar','Seed',irep);
                 
                 % initialize
                 groups = []; test_groups = []; train_idx = []; test_idx = [];
@@ -200,58 +225,59 @@ classdef Decode < dj.Computed
                 bin_sz = floor(msz/bins);
                 msz = bin_sz*bins;
                 
-                switch fold_selection
-                    case 'random'
-                        % undersample dataCe
-                        rseed = RandStream('mt19937ar','Seed',irep);
-                        data = cellfun(@(x) x(:,randperm(rseed,size(x,2),msz)),Data,'uni',0);
-
-                        % use data as test_data if not provided
-                        if isempty(test_Data)
-                            test_data = data;
-                            rseed.reset; % ensures same time randomization for index generation
-                            data_idx = cellfun(@(x) randperm(rseed,size(x,2),msz),Data,'uni',0);% create bin index
-                            test_bin_sz = bin_sz;
-                            test_Data = Data;
-                        else % randomize trials
-                            % equalize by undersampling shorter class & randomize trial sequence
-                            msz = min(cellfun(@(x) size(x,2),test_Data)); % calculate minimum class length
-                            test_bin_sz = floor(msz/bins); % calculate fold bin size and recompute minimum length of data
-                            msz = test_bin_sz*bins;
-
-                            rseed2 = RandStream('mt19937ar','Seed',repetitions+irep);
-                            test_data = cellfun(@(x) x(:,randperm(rseed2,size(x,2),msz)),test_Data,'uni',0);
-                            rseed2.reset; % ensures same time randomization for index generation
-                            data_idx = cellfun(@(x) randperm(rseed2,size(x,2),msz),test_Data,'uni',0);
-                        end
-                    case 'rotation'
-                        [~, Id] = histc(a,[-inf; quantile(a,bins-1)'; inf]);
-                end
+                % undersample data
+                train_data_idx = cellfun(@(x) randperm(rseed,size(x,2),msz),Data,'uni',0);% create bin index
+                
+                % equalize by undersampling shorter class & randomize trial sequence
+                msz = min(cellfun(@(x) size(x,2),test_Data)); % calculate minimum class length
+                test_bin_sz = floor(msz/bins); % calculate fold bin size and recompute minimum length of data
+                msz = test_bin_sz*bins;
+                rseed.reset;
+                test_data_idx = cellfun(@(x) randperm(rseed,size(x,2),msz),test_Data,'uni',0);
                 
                 % make group identities & build indexes
                 for iclass = 1:group_num
                     % make group identities
-                    groups{iclass} = ones(1,size(data{iclass},2)) * iclass;
-                    test_groups{iclass} = ones(1,size(test_data{iclass},2)) * iclass;
+                    groups{iclass} = ones(1,size(train_data_idx{iclass},2)) * iclass;
+                    test_groups{iclass} = ones(1,size(test_data_idx{iclass},2)) * iclass;
                     
-                    % buld index
-                    for ibin = 1:bins
-                        train_idx{iclass}(1 + (ibin-1)*bin_sz      :      bin_sz*ibin) = ibin;
-                        test_idx{iclass} (1 + (ibin-1)*test_bin_sz : test_bin_sz*ibin) = ibin;
+                    switch fold_selection
+                        case 'random'
+                            % buld index
+                            for ibin = 1:bins
+                                train_idx{iclass}(1 + (ibin-1)*bin_sz      :      bin_sz*ibin) = ibin;
+                                test_idx{iclass} (1 + (ibin-1)*test_bin_sz : test_bin_sz*ibin) = ibin;
+                            end
+                        case {'x','y','frame_id','scale','rotation','tilt','light1_xloc','light1_yloc','light3_yloc','light2_ene'}
+                            
+                            keys = cell2struct([num2cell(train_info.clips{iclass}(train_data_idx{iclass}),2),...
+                                train_info.names{iclass}(train_data_idx{iclass})']',{'clip_number','movie_name'},1);
+                            param = getParam(stimulus.MovieClip, keys, fold_selection, ...
+                                train_info.bins{iclass}(train_data_idx{iclass})*binsize/1000 - binsize/2/1000);
+                            [~, sort_idx] = histc(param,[-inf; quantile(param,bins-1)'; inf]);
+                            train_idx{iclass} = sort_idx(:)';
+                            keys = cell2struct([num2cell(test_info.clips{iclass}(test_data_idx{iclass}),2),...
+                                test_info.names{iclass}(test_data_idx{iclass})']',{'clip_number','movie_name'},1);
+                            param = getParam(stimulus.MovieClip, keys, fold_selection, ...
+                                test_info.bins{iclass}(test_data_idx{iclass})*binsize/1000 - binsize/2/1000);
+                            [~, sort_idx] = histc(param,[-inf; quantile(param,bins-1)'; inf]);
+                            test_idx{iclass} = sort_idx(:)';
+                        otherwise
+                            error('Fold selection method not implemented!')
                     end
                 end
                 
                 % combine classes in one vector
-                data = cell2mat(data);
-                groups = cell2mat(groups); %#ok<NASGU>
-                test_data = cell2mat(test_data);
+                data = cell2mat(cellfun(@(x,y) x(:,y),Data,train_data_idx,'uni',0));
+                groups = cell2mat(groups);
+                test_data = cell2mat(cellfun(@(x,y) x(:,y),test_Data,test_data_idx,'uni',0));
                 test_groups = cell2mat(test_groups);
                 train_idx = cell2mat(train_idx);
                 test_idx = cell2mat(test_idx);
-                data_idx = cell2mat(data_idx);
+                test_data_idx = cell2mat(test_data_idx);
                 
                 % make nan zeros
-                data(isnan(data)) = prctile(data(:),1); %#ok<NASGU>
+                data(isnan(data)) = prctile(data(:),1);
                 
                 % create shuffled testing trials
                 test_sz = size(test_data,2);
@@ -260,7 +286,7 @@ classdef Decode < dj.Computed
                     test_shfl_idx = test_shfl_idx(randperm(rseed,test_sz));
                 end
                 test_shfl_groups = test_groups(test_shfl_idx);
-                data_shfl_idx = data_idx(test_shfl_idx);
+                data_shfl_idx = test_data_idx(test_shfl_idx);
                 
                 % get cell index
                 cell_idx = randperm(rseed,size(Data{1},1));
@@ -281,7 +307,8 @@ classdef Decode < dj.Computed
                         [x,y] = getDegrees(tune.DotRFMap & (fuse.ScanDone & key) & 'p_value<0.05',1);
                         mx = mean(x);
                         my = mean(y);
-                        [x,y, keys] = getDegrees(tune.DotRFMap & (fuse.ScanDone & key) & 'p_value<0.05' & (anatomy.AreaMembership & key),1);
+                        [x,y, keys] = getDegrees(tune.DotRFMap & (fuse.ScanDone & key) & ...
+                            'p_value<0.05' & (anatomy.AreaMembership & key),1);
                         idx = (mx-10)<x & x<(mx+10) & (my-10)<y & y<(my+10);
                         sel_units = [keys(idx).unit_id];
                         [~,unit_idx] = intersect(unit_ids(cell_idx),sel_units);
@@ -340,20 +367,21 @@ classdef Decode < dj.Computed
                 for icell = 1:size(cell_num,1) % For each cell permutation
                     for ibin = 1:bins          % For each fold
                         % select training/testing bin
-                        idx = train_idx ~= ibin; %#ok<NASGU>
+                        idx = train_idx ~= ibin;
                         tidx = test_idx == ibin;
                         
                         % run classifier
-                        DEC = eval(sprintf('%s(data(cell_idx(cell_num(icell,:)),idx)'', groups(idx)''%s)',decoder,dec_params)); % train decoder with parameters
+                        DEC = decoder_func(data(cell_idx(cell_num(icell,:)),idx)',groups(idx)');
                         [pre, sc] = predict(DEC,test_data(cell_idx(cell_num(icell,:)),tidx)'); % test decoder
                         
                         % Assign performance data into bins
                         p =  (pre == test_groups(tidx)');
                         r =  (pre == test_shfl_groups(tidx)');
                         for igroup = 1:group_num
-                            P{igroup}(icell,data_idx(tidx & test_groups==igroup)) = p(test_groups(tidx)==igroup);
-                            R{igroup}(icell,data_shfl_idx(tidx & test_shfl_groups==igroup)) = r(test_shfl_groups(tidx)==igroup);
-                            S{igroup}(icell,data_idx(tidx & test_groups==igroup)) = sc(test_groups(tidx)==igroup,1);
+                            P{igroup}(icell,test_data_idx(tidx & test_groups==igroup)) = p(test_groups(tidx)==igroup);
+                            R{igroup}(icell,data_shfl_idx(tidx & test_shfl_groups==igroup)) = ...
+                                r(test_shfl_groups(tidx)==igroup);
+                            S{igroup}(icell,test_data_idx(tidx & test_groups==igroup)) = sc(test_groups(tidx)==igroup,1);
                         end
                     end
                     Cells{irep}{icell} = cell_idx(cell_num(icell,:));
@@ -426,14 +454,14 @@ classdef Decode < dj.Computed
                         mi(iscan) = nanmean(R(:));
                     end
                     MI{iarea} = mi;
-                    %                     if nargin>2 && target_cell_num>cells(idx)
-                    %                         MI{iarea} = cellfun(@(x) nanmean(reshape(cellfun(@(xx) double(nanmean(xx(:))),x),[],1)), perf(idx));
-                    %                     end
+                    %  if nargin>2 && target_cell_num>cells(idx)
+                    %  MI{iarea} = cellfun(@(x) nanmean(reshape(cellfun(@(xx) double(nanmean(xx(:))),x),[],1)), perf(idx));
+                    %  end
                 end
             end
             
             % plot
-            f = figure;
+            figure;
             colors = parula(30);
             plotMask(anatomy.Masks)
             colormap parula
@@ -525,12 +553,10 @@ classdef Decode < dj.Computed
             else
                 fun = @(x) nanmean(x);
             end
-            if nargin<3 || ~isempty(p)
-                if ischar(p)
-                    p = fetchn(self,p);
-                else
-                    p = fetchn(self,'p');
-                end
+            if nargin>2 && ischar(p)
+                p = fetchn(self,p);
+            else
+                p = fetchn(self,'p');
             end
             perf = cell(length(p),1);
             for ikey = 1:length(p)
@@ -566,6 +592,5 @@ classdef Decode < dj.Computed
                 mi = sum(sum(p.*log2(p./pij)));
             end
         end
-        
     end
 end

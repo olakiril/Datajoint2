@@ -12,7 +12,7 @@ classdef Repeats < dj.Computed
     
     properties
         keySource = fuse.ScanDone * (obj.RepeatsOpt & 'process = "yes"') ...
-            & (stimulus.Sync & (stimulus.Trial & (stimulus.Clip & (stimulus.Movie & 'movie_class="object3d"'))))
+            & (stimulus.Sync & (stimulus.Trial & (stimulus.Clip & (stimulus.Movie & 'movie_class="object3d" OR movie_class="multiobjects"'))))
     end
     
     methods(Access=protected)

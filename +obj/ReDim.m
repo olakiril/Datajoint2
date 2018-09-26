@@ -122,7 +122,7 @@ classdef ReDim < dj.Computed
             params.tbin = 3;
             params.method = 'lines';
             params.colormap = @(x) cbrewer('qual','Set1',x);
-            params.play = true;
+            params.play = false;
             params.markersize = 2;
             params.linewidth = 2;
             params.time = false;
@@ -146,7 +146,7 @@ classdef ReDim < dj.Computed
             end
           
             
-             rseed = RandStream('mt19937ar','Seed',params.seed );
+%             rseed = RandStream('mt19937ar','Seed',params.seed );
              
             % get data
             [trials,mappedX,bins] = fetch1(self,'trials','mapped','bins');
@@ -284,13 +284,12 @@ classdef ReDim < dj.Computed
                         end
                 end
             end
-            
-            
+                   
             function play
                 while run
                     old_vd = get(gca,'view');
                     view([old_vd(1)+1 old_vd(2)])
-                    pause(0.02)
+                    pause(0.01)
                 end
             end
         end
