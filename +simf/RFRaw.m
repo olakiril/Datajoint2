@@ -12,8 +12,7 @@ classdef RFRaw < dj.Computed
     
     methods(Access=protected)
         function makeTuples(self, key)
-            target_fps = 2; % ~500ms bins
-            [x_sz, y_sz] = fetch1(simf.RFParams & key,'x_size','y_size');
+            [x_sz, y_sz, binsize] = fetch1(simf.RFParams & key,'x_size','y_size','binsize');
             [filters, keys] = fetchn(simf.RFFilters & key,'filter');
             filters = cell2mat(cellfun(@(x) x(:),filters,'uni',0)');
             movie_keys = fetch(stimulus.MovieClip & key);
@@ -25,7 +24,7 @@ classdef RFRaw < dj.Computed
                 vr = VideoReader(filename{1});
                
                 frame_rate = vr.FrameRate;
-                skip_frames = round(frame_rate/target_fps);
+                skip_frames = round(frame_rate*binsize/1000);
                 file = nan(vr.Height,vr.Width,3,floor(vr.Duration*frame_rate));
                 for i = 1:size(file,4)
                     file(:,:,:,i) = vr.readFrame;
