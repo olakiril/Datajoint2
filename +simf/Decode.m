@@ -31,7 +31,7 @@ classdef Decode < dj.Computed
             stims = cellfun(@(x) unique(cellfun(@(y) y{1},x,'uni',0)),train_groups,'uni',0);
             Stims = unique([stims{:}])';
             
-          
+            
             % get DAta
             [Traces, Unit_ids] = getData(self,Stims,key); % [Cells, Obj, Trials]
             if ~isempty(test_groups)
@@ -41,10 +41,11 @@ classdef Decode < dj.Computed
             end
             
             % create StimInfo
-              for istim =1:length(Stims)
-                  StimInfo.bins{istim} = (1:size(Traces{istim},2))';
+            for istim =1:length(Stims)
+                StimInfo.clips{istim} = ones(size(Traces{istim},2),1);
+                StimInfo.bins{istim} = (1:size(Traces{istim},2))';
                 StimInfo.names{istim} = repmat(Stims(istim),size(Traces{istim},2),1);
-              end
+            end
             
             % run the decoding
             P = cell(length(train_groups),length(train_groups{1})); P_shfl = P;score = P;
@@ -56,10 +57,12 @@ classdef Decode < dj.Computed
                         repmat(tgroup,size(Stims,1),1),...
                         repmat(Stims,1,size(tgroup,2)))',1);
                     train_data{iClass} = cell2mat(Traces(stim_idx));
+                    train_info.bins{iGroup,iClass} = cell2mat(reshape(StimInfo.bins(stim_idx),[],1));
+                    train_info.clips{iGroup,iClass} = cell2mat(reshape(StimInfo.clips(stim_idx),[],1));
                     
-                       names = cellfun(@(x) reshape(x,1,[]),StimInfo.names,'uni',0);
+                    names = cellfun(@(x) reshape(x,1,[]),StimInfo.names,'uni',0);
                     train_info.names{iGroup,iClass} = [names{stim_idx}];
-
+                    
                     
                     if ~isempty(test_groups)
                         tgroup = test_groups{iGroup}{iClass};
@@ -67,8 +70,10 @@ classdef Decode < dj.Computed
                             repmat(tgroup,size(Stims,1),1),...
                             repmat(Stims,1,size(tgroup,2)))',1);
                         test_data{iClass} = cell2mat(Traces(stim_idx));
+                        test_info.bins{iGroup,iClass} = cell2mat(reshape(StimInfo.bins(stim_idx),[],1));
+                        test_info.clips{iGroup,iClass} = cell2mat(reshape(StimInfo.clips(stim_idx),[],1));
                         
-                          names = cellfun(@(x) reshape(x,1,[]),StimInfo.names,'uni',0);
+                        names = cellfun(@(x) reshape(x,1,[]),StimInfo.names,'uni',0);
                         test_info.names{iGroup,iClass} = [names{stim_idx}];
                     else, test_info = train_info;
                     end
@@ -129,10 +134,10 @@ classdef Decode < dj.Computed
             
             % get decoder parameters
             [decoder,k_fold,shuffle,repetitions,select_method,...
-                 dec_params, neurons,fold_selection] = ...
+                dec_params, neurons,fold_selection] = ...
                 fetch1(simf.DecodeOpt & key,...
                 'decoder','k_fold','shuffle','repetitions','select_method',...
-                   'dec_params','neurons','fold_selection');
+                'dec_params','neurons','fold_selection');
             binsize = fetch1(simf.RFParams & key,'binsize');
             
             % define decoder function
@@ -189,13 +194,13 @@ classdef Decode < dj.Computed
                             
                             keys = cell2struct([num2cell(train_info.clips{iclass}(train_data_idx{iclass}),2),...
                                 train_info.names{iclass}(train_data_idx{iclass})']',{'clip_number','movie_name'},1);
-                            param = getParam(stimulus.MovieClip, keys, fold_selection, ...
+                            param = getParam(stimulus.MovieParams, keys, fold_selection, ...
                                 train_info.bins{iclass}(train_data_idx{iclass})*binsize/1000 - binsize/2/1000);
                             [~, sort_idx] = histc(param,[-inf; quantile(param,bins-1)'; inf]);
                             train_idx{iclass} = sort_idx(:)';
                             keys = cell2struct([num2cell(test_info.clips{iclass}(test_data_idx{iclass}),2),...
                                 test_info.names{iclass}(test_data_idx{iclass})']',{'clip_number','movie_name'},1);
-                            param = getParam(stimulus.MovieClip, keys, fold_selection, ...
+                            param = getParam(stimulus.MovieParams, keys, fold_selection, ...
                                 test_info.bins{iclass}(test_data_idx{iclass})*binsize/1000 - binsize/2/1000);
                             [~, sort_idx] = histc(param,[-inf; quantile(param,bins-1)'; inf]);
                             test_idx{iclass} = sort_idx(:)';
