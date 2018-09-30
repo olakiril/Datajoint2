@@ -134,10 +134,10 @@ classdef Decode < dj.Computed
             
             % get decoder parameters
             [decoder,k_fold,shuffle,repetitions,select_method,...
-                dec_params, neurons,fold_selection] = ...
+                 dec_params, neurons,fold_selection,noise] = ...
                 fetch1(simf.DecodeOpt & key,...
                 'decoder','k_fold','shuffle','repetitions','select_method',...
-                'dec_params','neurons','fold_selection');
+                   'dec_params','neurons','fold_selection','noise');
             binsize = fetch1(simf.RFParams & key,'binsize');
             
             % define decoder function
@@ -154,6 +154,7 @@ classdef Decode < dj.Computed
             for irep = 1:repetitions
                 fprintf(' #%d ',irep)
                 rseed = RandStream('mt19937ar','Seed',irep);
+                RandStream.setGlobalStream(rseed)
                 
                 % initialize
                 groups = []; test_groups = []; train_idx = []; test_idx = [];
@@ -220,6 +221,13 @@ classdef Decode < dj.Computed
                 
                 % make nan zeros
                 data(isnan(data)) = prctile(data(:),1);
+                
+                % add noise
+                if ~isempty(noise)
+                    noise_func = eval(noise);
+                    data = noise_func(data);
+                    test_data = noise_func(test_data);
+                end
                 
                 % create shuffled testing trials
                 test_sz = size(test_data,2);
