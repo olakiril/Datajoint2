@@ -314,11 +314,17 @@ classdef Repeats < dj.Computed
             
         end
         
-        function R = getReliability(self)
+        function R = getReliability(self, restrict)
+            keys = fetch(self);
             
-            keys = fetch(fuse.ScanSetUnit & (obj.RepeatsUnit & 'p_shuffle<0.05') & self);
             for ikey = 1:length(keys)
-                R(ikey)  = nanmean(fetchn(obj.RepeatsUnit  & keys(ikey),'r'));
+                if nargin >1 && ~isempty(restrict)
+                    
+                    R(ikey) = nanmean(fetchn(obj.RepeatsUnit & restrict & 'p_shuffle<0.05' & keys(ikey),'r'));
+                else
+                    R(ikey) = nanmean(fetchn(obj.RepeatsUnit & 'p_shuffle<0.05' & keys(ikey),'r'));
+                    
+                end
             end
         end
     end
