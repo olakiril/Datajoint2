@@ -102,10 +102,10 @@ classdef Repeats < dj.Computed
             [Traces, caTimes, keys] = getAdjustedSpikes(fuse.ActivityTrace & key,'soma'); % [time cells]
             Traces = single(Traces);
             trials = stimulus.Trial &  (stimulus.Clip & (stimulus.Movie & 'movie_class="object3d"')) & key;% (obj.Repeats & key);
-%             [flip_times, cond_hash] = fetchn(...
-%                 trials * (stimulus.Clip & (aggr(stimulus.Clip, stimulus.Trial & (obj.Repeats & key), 'count(*)->n') & 'n>1')),...
-%                 'flip_times','condition_hash');
-                        [flip_times, cond_hash] = fetchn(...
+            %             [flip_times, cond_hash] = fetchn(...
+            %                 trials * (stimulus.Clip & (aggr(stimulus.Clip, stimulus.Trial & (obj.Repeats & key), 'count(*)->n') & 'n>1')),...
+            %                 'flip_times','condition_hash');
+            [flip_times, cond_hash] = fetchn(...
                 trials * (stimulus.Clip & (aggr(stimulus.Clip, stimulus.Trial & key, 'count(*)->n') & 'n>1')),...
                 'flip_times','condition_hash');
             
@@ -148,11 +148,11 @@ classdef Repeats < dj.Computed
                 tstim = 0;
             end
             is_trained = any(stim'==tstim')';
-
+            
             R = [];
             for iarea = 1:length(un_areas)
                 for itrained = 1:max(is_trained)+1
-                   R{iarea,itrained} = reliability(strcmp(un_areas{iarea},brain_areas) & is_trained==itrained-1); 
+                    R{iarea,itrained} = reliability(strcmp(un_areas{iarea},brain_areas) & is_trained==itrained-1);
                 end
             end
             
@@ -185,31 +185,31 @@ classdef Repeats < dj.Computed
             
             if nargin<2 || isempty(key)
                 key = fetch(self);
-%             else
-%                 keys = fetch(self & key);
-             end
-%             for key = keys'
-                    [Data, Stims] = getData(self,key,bin); % [time,repeats,uni_stims,cells]
-                    dat= []; s = []; im = [];
-                    fig = figure;
-                    for iobj = 1:size(Data,3)
-                        data = permute(squeeze(Data(:,:,iobj,:)),[3,1,2]); % [Cells, Time, Trials]
-                        if params.sort
-                            [~,mxidx] = max(nanmean(data,3),[],2);
-                            [~,sidx] = sort(mxidx,'ascend');
-                            data = data(sidx,:,:);
-                        end
-                        if params.rand; data = data(randperm(size(data,1)),:,:);end
-                        if params.trials; data = permute(data,[3 2 1]);end
-                        trial_num(iobj) = size(data,3);
-                        bin_num(iobj) = size(data,2);
-                        data(:,:,end+1:end+floor(params.gap/100*trial_num(iobj))) = min(data(:));
-                        dat{iobj} = (reshape(permute(data,[2 3 1]),size(data,2),[]));
-                        dat_sz(iobj) = size(dat{iobj},2);
-                    end
-                    step = floor(params.scroll_step/100*min(dat_sz));
-                    plotData
-%             end
+                %             else
+                %                 keys = fetch(self & key);
+            end
+            %             for key = keys'
+            [Data, Stims] = getData(self,key,bin); % [time,repeats,uni_stims,cells]
+            dat= []; s = []; im = [];
+            fig = figure;
+            for iobj = 1:size(Data,3)
+                data = permute(squeeze(Data(:,:,iobj,:)),[3,1,2]); % [Cells, Time, Trials]
+                if params.sort
+                    [~,mxidx] = max(nanmean(data,3),[],2);
+                    [~,sidx] = sort(mxidx,'ascend');
+                    data = data(sidx,:,:);
+                end
+                if params.rand; data = data(randperm(size(data,1)),:,:);end
+                if params.trials; data = permute(data,[3 2 1]);end
+                trial_num(iobj) = size(data,3);
+                bin_num(iobj) = size(data,2);
+                data(:,:,end+1:end+floor(params.gap/100*trial_num(iobj))) = min(data(:));
+                dat{iobj} = (reshape(permute(data,[2 3 1]),size(data,2),[]));
+                dat_sz(iobj) = size(dat{iobj},2);
+            end
+            step = floor(params.scroll_step/100*min(dat_sz));
+            plotData
+            %             end
             
             function plotData
                 clf
@@ -312,6 +312,14 @@ classdef Repeats < dj.Computed
                 set(gca,'ylim',ylim)
             end
             
+        end
+        
+        function R = getReliability(self)
+            
+            keys = fetch(fuse.ScanSetUnit & (obj.RepeatsUnit & 'p_shuffle<0.05') & self);
+            for ikey = 1:length(keys)
+                R(ikey)  = nanmean(fetchn(obj.RepeatsUnit  & keys(ikey),'r'));
+            end
         end
     end
 end
