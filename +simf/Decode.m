@@ -50,7 +50,9 @@ classdef Decode < dj.Computed
             % run the decoding
             P = cell(length(train_groups),length(train_groups{1})); P_shfl = P;score = P;
             for iGroup = 1:length(train_groups)
-                train_data = [];test_data = [];
+                fprintf('Group# %d/%d ',iGroup,length(train_groups));
+                
+                train_data = [];test_data = []; 
                 for iClass = 1:length(train_groups{iGroup})
                     tgroup = train_groups{iGroup}{iClass};
                     stim_idx = any(strcmp(...
@@ -134,10 +136,10 @@ classdef Decode < dj.Computed
             
             % get decoder parameters
             [decoder,k_fold,shuffle,repetitions,select_method,...
-                 dec_params, neurons,fold_selection,noise] = ...
+                dec_params, neurons,fold_selection,noise] = ...
                 fetch1(simf.DecodeOpt & key,...
                 'decoder','k_fold','shuffle','repetitions','select_method',...
-                   'dec_params','neurons','fold_selection','noise');
+                'dec_params','neurons','fold_selection','noise');
             binsize = fetch1(simf.RFParams & key,'binsize');
             
             % define decoder function
@@ -150,9 +152,11 @@ classdef Decode < dj.Computed
             end
             
             PP = cell(repetitions,1); RR = PP;Cells = [];SC = PP;
-            fprintf('Rep:')
+            txt = '';
             for irep = 1:repetitions
-                fprintf(' #%d ',irep)
+                fprintf(repmat('\b',1,length(txt)));
+                txt= sprintf('Rep# %d/%d ',irep,repetitions);
+                fprintf('%s',txt);
                 rseed = RandStream('mt19937ar','Seed',irep);
                 RandStream.setGlobalStream(rseed)
                 
