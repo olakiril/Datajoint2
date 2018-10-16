@@ -37,7 +37,7 @@ classdef SiteStats < dj.Computed
             [Traces, Stims] = getData(self,key); % [Cells, Obj, Trials]
             ObjID = cellfun(@(x) str2num(x{1}),regexp(Stims,'\d(?=\w*v\d)','match'));
             [neurons, reps] = fetch1(obj.SiteStatsOpt & key,'neurons','reps');
-            rec_len = cellfun(@(x) size(x,2),Traces);
+           
             % get framerate
             if count(meso.ScanInfo & key)
                 fps = fetch1(meso.ScanInfo & key,'fps');
@@ -69,7 +69,7 @@ classdef SiteStats < dj.Computed
                         traces_cis = cell2mat(cellfun(@(x) x(neuro_idx,:),Traces(group),'uni',0));
                         dist_cis(irep) = nanmean(reshape(pdist2(traces',traces_cis(:,randperm(rseed,size(traces_cis,2),size(traces,2)))'),[],1));
                     else
-                        dist_cis(irep) = [];
+                        dist_cis(irep) = nan;
                     end
                     pspars(irep) = nanmean(sparseness(traces));
                     pzero(irep) = nanmean(sparseness(traces,'type','pzero'));
