@@ -36,7 +36,8 @@ classdef SiteStats < dj.Computed
             % get Data
             [Traces, Stims] = getData(self,key); % [Cells, Obj, Trials]
             ObjID = cellfun(@(x) str2num(x{1}),regexp(Stims,'\d(?=\w*v\d)','match'));
-            
+            [neurons, reps] = fetch1(obj.SiteStatsOpt & key,'neurons','reps');
+            rec_len = cellfun(@(x) size(x,2),Traces);
             % get framerate
             if count(meso.ScanInfo & key)
                 fps = fetch1(meso.ScanInfo & key,'fps');
@@ -52,23 +53,44 @@ classdef SiteStats < dj.Computed
                 key.mean = nanmean(traces(:));
                 key.variance = nanmean(nanvar(traces,[],2));
                 key.tempwin = calcResponseWindow(traces',fps);
-                c =  corr(traces');
-                key.corr = nanmean(c(logical(tril(ones(size(c)),-1))));
-                key.dist_in = nanmean(pdist(traces'));
-                group = ObjID==ObjID(iStim);
-                key.dist_trans = nanmean(reshape(pdist2(traces',cell2mat(Traces(~group))'),[],1));
-                group(iStim) = false;
-                if any(group)
-                    key.dist_cis = nanmean(reshape(pdist2(traces',cell2mat(Traces(group))'),[],1));
-                else
-                    key.dist_cis = [];
+                [corrs, dist_in, dist_trans, dist_cis, pspars, pzero, pkurt, lspars, lzero,lkurt] = initialize('nan',reps,1);
+                for irep = 1:reps
+                    rseed = RandStream('mt19937ar','Seed',irep);
+                    neuro_idx = randperm(rseed,size(Traces{iStim},1),neurons);
+                    traces = Traces{iStim}(neuro_idx,:);
+                    c =  corr(traces');
+                    corrs(irep) = nanmean(c(logical(tril(ones(size(c)),-1))));
+                    dist_in(irep) = nanmean(pdist(traces'));
+                    group = ObjID==ObjID(iStim);
+                    traces_trans = cell2mat(cellfun(@(x) x(neuro_idx,:),Traces(~group),'uni',0));
+                    dist_trans(irep) = nanmean(reshape(pdist2(traces',traces_trans(:,randperm(rseed,size(traces_trans,2),size(traces,2)))'),[],1));
+                    group(iStim) = false;
+                    if any(group)
+                        traces_cis = cell2mat(cellfun(@(x) x(neuro_idx,:),Traces(group),'uni',0));
+                        dist_cis(irep) = nanmean(reshape(pdist2(traces',traces_cis(:,randperm(rseed,size(traces_cis,2),size(traces,2)))'),[],1));
+                    else
+                        dist_cis(irep) = [];
+                    end
+                    pspars(irep) = nanmean(sparseness(traces));
+                    pzero(irep) = nanmean(sparseness(traces,'type','pzero'));
+                    pkurt(irep) = nanmean(sparseness(traces,'type','kurtosis'));
+                    lspars(irep) = nanmean(sparseness(traces'));
+                    lzero(irep) = nanmean(sparseness(traces','type','pzero'));
+                    lkurt(irep) = nanmean(sparseness(traces','type','kurtosis'));
+                
                 end
-                key.pspars = nanmean(sparseness(traces));
-                key.pzero = nanmean(sparseness(traces,'type','pzero'));
-                key.pkurt = nanmean(sparseness(traces,'type','kurtosis'));
-                key.lspars = nanmean(sparseness(traces'));
-                key.lzero = nanmean(sparseness(traces','type','pzero'));
-                key.lkurt = nanmean(sparseness(traces','type','kurtosis'));
+                
+                key.corr = nanmean(corrs);
+                key.dist_in = nanmean(dist_in);
+                key.dist_trans = nanmean(dist_trans);
+                key.dist_cis = nanmean(dist_cis);
+                key.pspars = nanmean(pspars);
+                key.pzero = nanmean(pzero);
+                key.pkurt = nanmean(pkurt);
+                key.lspars = nanmean(lspars);
+                key.lzero = nanmean(lzero);
+                key.lkurt = nanmean(lkurt);
+                key.tun = mean(self.fitTune(Traces{iStim}'));
                 
                 % insert
                 key.movie_name = Stims{iStim};
@@ -157,7 +179,9 @@ classdef SiteStats < dj.Computed
             R = [];
             for iarea = 1:length(un_areas)
                 for itrained = 1:max(is_trained)+1
-                   R{iarea,itrained} = data(strcmp(un_areas{iarea},brain_areas) & is_trained==itrained-1)/mean(neurons); 
+%                    R{iarea,itrained} = data(strcmp(un_areas{iarea},brain_areas) & is_trained==itrained-1)/mean(neurons); 
+                                      R{iarea,itrained} = data(strcmp(un_areas{iarea},brain_areas) & is_trained==itrained-1); 
+
                 end
             end
             
@@ -170,6 +194,30 @@ classdef SiteStats < dj.Computed
                 l = legend({'Naive','Trained'});
                 set(l,'box','off')
             end
+        end
+        
+    end
+    
+    methods(Static)
+        function pwr = fitTune(traces)
+            pwr = nan(size(traces,2),1);
+            for itrace = 1:size(traces,2)
+                x = sort(traces(:,itrace),'descend');
+                y = repmat((1:size(x,1))',1,size(x,2));
+                [xData, yData] = prepareCurveData( y, x );
+
+                % Set up fittype and options.
+                ft = fittype( 'power2' );
+                opts = fitoptions( 'Method', 'NonlinearLeastSquares' );
+                opts.Display = 'Off';
+                opts.StartPoint = [0 0 0];
+
+                % Fit model to data.
+                [fitresult, ~] = fit( xData, yData, ft, opts );
+                v = coeffvalues(fitresult);
+                pwr(itrace) = abs(v(2));
+            end
+ 
         end
     end
 end

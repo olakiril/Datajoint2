@@ -42,6 +42,7 @@ classdef Decode < dj.Computed
             %Loop through each group of comparissons
             P = cell(length(train_groups),length(train_groups{1})); P_shfl = P;score = P;
             for iGroup = 1:length(train_groups)
+                fprintf('Group# %d/%d ',iGroup,length(train_groups));
                 
                 % assign training & testing data and the stimulus information for each
                 train_data = [];test_data = [];
@@ -208,10 +209,11 @@ classdef Decode < dj.Computed
                 test_Data = Data;
             end
             
-            PP = cell(repetitions,1); RR = PP;Cells = [];SC = PP;
-            fprintf('Rep:')
+            PP = cell(repetitions,1); RR = PP;Cells = [];SC = PP;txt = '';
             for irep = 1:repetitions
-                fprintf(' #%d ',irep)
+                fprintf(repmat('\b',1,length(txt)));
+                txt= sprintf('Rep# %d/%d ',irep,repetitions);
+                fprintf('%s',txt);
                 rseed = RandStream('mt19937ar','Seed',irep);
                 
                 % initialize
@@ -574,8 +576,18 @@ classdef Decode < dj.Computed
             %             end
             
         end
+        
+        function params = getParams(self, param_type)
+            [trial_info, binsize] = fetch1(self*obj.DecodeOpt,'trial_info','binsize');
+            for iclass = 1:length(trial_info.clips)
+                keys = cell2struct([num2cell(trial_info.clips{iclass},2),...
+                    trial_info.names{iclass}']',{'clip_number','movie_name'},1);
+                params{iclass} = getParam(stimulus.MovieParams, keys, param_type, ...
+                    trial_info.bins{iclass}*binsize/1000 - binsize/2/1000);
+            end
+        end
     end
-    
+
     methods (Static)
         function mi = getMI(R)
             CM = nan(2,2);
