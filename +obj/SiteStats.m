@@ -67,7 +67,9 @@ classdef SiteStats < dj.Computed
                     group(iStim) = false;
                     if any(group)
                         traces_cis = cell2mat(cellfun(@(x) x(neuro_idx,:),Traces(group),'uni',0));
-                        dist_cis(irep) = nanmean(reshape(pdist2(traces',traces_cis(:,randperm(rseed,size(traces_cis,2),size(traces,2)))'),[],1));
+                        mn_sz = min([size(traces,2), size(traces_cis,2)]);
+                        dist_cis(irep) = nanmean(reshape(pdist2(traces(:,randperm(rseed,size(traces,2),mn_sz))',...
+                            traces_cis(:,randperm(rseed,size(traces_cis,2),mn_sz))'),[],1));
                     else
                         dist_cis(irep) = nan;
                     end
