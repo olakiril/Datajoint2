@@ -11,9 +11,10 @@ train_groups          : longblob                      # train group info
 test_groups           : longblob                      # test group info
 trial_info            : longblob                      # trial info [index, clip #, movie, bin #]
 score                 : longblob                      # svm score (distance to boundary)
+classifier            : longblob                      # svm score (distance to boundary)
 %}
 
-classdef Decode < dj.Computed
+classdef Dec < dj.Computed
     %#ok<*AGROW>
     %#ok<*INUSL>
     
@@ -77,7 +78,7 @@ classdef Decode < dj.Computed
                 end
                 
                 % run the decoding
-                [P(iGroup,:), P_shfl(iGroup,:), unit_idx(iGroup,:), score(iGroup,:)]= ...
+                [P(iGroup,:), P_shfl(iGroup,:), unit_idx(iGroup,:), score(iGroup,:), classifier(iGroup,:)]= ...
                     decodeMulti(self, train_data, test_data, key, Unit_ids,...
                     structfun(@(x) x(iGroup,:),train_info,'uni',0),structfun(@(x) x(iGroup,:),test_info,'uni',0));
             end
@@ -92,6 +93,7 @@ classdef Decode < dj.Computed
             key.test_groups = test_groups;
             key.trial_info = test_info;
             key.score = score;
+            key.classifier = classifier;
             self.insert(key)
         end
     end
@@ -187,7 +189,7 @@ classdef Decode < dj.Computed
             end
         end
         
-        function [PP, RR, Cells, SC] = decodeMulti(self,Data,test_Data, key, unit_ids, train_info, test_info)
+        function [PP, RR, Cells, SC, DC] = decodeMulti(self,Data,test_Data, key, unit_ids, train_info, test_info)
             % performs a svm classification
             % data: {classes}[cells trials]
             % output: {classes}[reps trials]
@@ -224,7 +226,7 @@ classdef Decode < dj.Computed
                 msz = min(cellfun(@(x) size(x,2),Data)); % calculate minimum class length
                 
                 % calculate fold bin size and recompute minimum length of data
-                if k_fold<2;bins = msz;else;bins = k_fold;end
+                if k_fold==1;bins = msz;elseif k_fold==0;bins=1;else, bins = k_fold;end
                 bin_sz = floor(msz/bins);
                 msz = bin_sz*bins;
                 
@@ -370,8 +372,13 @@ classdef Decode < dj.Computed
                 for icell = 1:size(cell_num,1) % For each cell permutation
                     for ibin = 1:bins          % For each fold
                         % select training/testing bin
-                        idx = train_idx ~= ibin;
-                        tidx = test_idx == ibin;
+                        if bins==1 % no crossvalidation case, testing on training dataset
+                            idx = logical(train_idx);
+                            tidx = logical(test_idx);
+                        else
+                            idx = train_idx ~= ibin;
+                            tidx = test_idx == ibin;
+                        end
                         
                         % run classifier
                         DEC = decoder_func(data(cell_idx(cell_num(icell,:)),idx)',groups(idx)');
@@ -385,7 +392,10 @@ classdef Decode < dj.Computed
                             R{igroup}(icell,data_shfl_idx(tidx & test_shfl_groups==igroup)) = ...
                                 r(test_shfl_groups(tidx)==igroup);
                             S{igroup}(icell,test_data_idx(tidx & test_groups==igroup)) = sc(test_groups(tidx)==igroup,1);
-                            D{igroup}{icell,ibin} = DEC.BinaryLearners{igroup};
+                            D{igroup}{icell,ibin}(1,:) = DEC.BinaryLearners{igroup}.Beta;
+                            D{igroup}{icell,ibin}(2,:) = repmat(DEC.BinaryLearners{igroup}.Bias,sum(cell_num(icell,:)),1);
+                            D{igroup}{icell,ibin}(3,:) = DEC.BinaryLearners{igroup}.Mu;
+                            D{igroup}{icell,ibin}(4,:) = DEC.BinaryLearners{igroup}.Sigma;
                         end
                     end
                     Cells{irep}{icell} = cell_idx(cell_num(icell,:));

@@ -1,25 +1,26 @@
 %{
 # Site statistics for object stimuli
--> fuse.ScanDone
+-> `pipeline_stimulus`.`_sync`
+-> `pipeline_fuse`.`__scan_done`
 -> anatomy.Area
 -> obj.SiteStatsOpt
--> stimulus.Movie
+-> `pipeline_stimulus`.`#movie`
 ---
--> stimulus.Sync
-neurons               : smallint            # number of neurons
-dist_in               : double              # average eucleadian distance
-dist_trans            : double              # across object identity average eucleadian distance
-dist_cis              : double              # within object identity average eucleadian distance
-corr                  : double              # average total correlation across neurons
-mean                  : double              # mean
-variance              : double              # variance
-tempwin               : double              # response temporal window
-pspars                : double              # population sparseness
-pzero                 : double              # probability of zero neurons responding
-pkurt                 : double              # kurtosis
-lspars                : double              # lifetime sparseness
-lzero                 : double              # probability of zero response
-lkurt                 : double              # lifetime kurtosis
+neurons                     : smallint                      # number of neurons
+dist_in                     : double                        # average eucleadian distance
+dist_trans=null             : double                        # across object identity average eucleadian distance
+dist_cis=null               : double                        # within object identity average eucleadian distance
+corr                        : double                        # average total correlation across neurons
+mean                        : double                        # mean
+variance                    : double                        # variance
+tempwin                     : double                        # response temporal window
+pspars                      : double                        # population sparseness
+pzero                       : double                        # probability of zero neurons responding
+pkurt                       : double                        # kurtosis
+lspars                      : double                        # lifetime sparseness
+lzero                       : double                        # probability of zero response
+lkurt                       : double                        # lifetime kurtosis
+tun=null                    : double                        # 
 %}
 
 classdef SiteStats < dj.Computed
@@ -37,7 +38,8 @@ classdef SiteStats < dj.Computed
             [Traces, Stims] = getData(self,key); % [Cells, Obj, Trials]
             ObjID = cellfun(@(x) str2num(x{1}),regexp(Stims,'\d(?=\w*v\d)','match'));
             [neurons, reps] = fetch1(obj.SiteStatsOpt & key,'neurons','reps');
-           
+            assert(neurons > size(Traces{1},1),sprintf('Site has only %d neurons',size(Traces{1})))
+            
             % get framerate
             if count(meso.ScanInfo & key)
                 fps = fetch1(meso.ScanInfo & key,'fps');
