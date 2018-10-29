@@ -404,7 +404,7 @@ classdef Decode < dj.Computed
             SC = cellfun(@cell2mat,mat2cell(cellfun(@(x) permute(x,[3 2 1]),permute(reshape([SC{:}],...
                 length(Data),repetitions),[2 1]),'uni',0),repetitions,ones(1,length(Data))),'uni',0);
             DC = num2cell(permute(reshape([DC{:}],length(Data),repetitions),[2 1]),2);
-
+            
         end
         
         function plotMasks(self,norm,target_cell_num)
@@ -518,7 +518,7 @@ classdef Decode < dj.Computed
             end
             
             if params.norm
-               MI = cellfun(@(x,y) normalize(x(:,1:y),2),MI,num2cell(cell_idx,2),'uni',0); 
+                MI = cellfun(@(x,y) normalize(x(:,1:y),2),MI,num2cell(cell_idx,2),'uni',0);
             end
             
             if isempty(params.figure)
@@ -547,7 +547,7 @@ classdef Decode < dj.Computed
             params.l = legend(h,un_areas);
             if ~params.mi && ~params.norm
                 ylabel('Performance (% correct)')
-                 plot(get(gca,'xlim'),[0.5 0.5],'-.','color',[0.5 0.5 0.5]);
+                plot(get(gca,'xlim'),[0.5 0.5],'-.','color',[0.5 0.5 0.5]);
             elseif params.mi && ~params.norm
                 ylabel('Mutual Information (bits)')
             elseif params.norm
@@ -597,19 +597,22 @@ classdef Decode < dj.Computed
             end
         end
     end
-
+    
     methods (Static)
-        function mi = getMI(R)
-            CM = nan(2,2);
-            CM([1 4]) = nansum(R(:)==1);
-            CM([2 3]) = nansum(R(:)==0);
+        function mi = getMI(R,classes)
+            if nargin<2
+                classes = 2;
+            end
+            CM = nan(classes);
+            CM(logical(eye(classes))) = nansum(R(:)==1);
+            CM(~logical(eye(classes))) = nansum(R(:)==0)/(classes-1);
             p = CM/sum(CM(:));
             pi = sum(CM,2)/sum(CM(:));
             pj = sum(CM,1)/sum(CM(:));
             pij = pi*pj;
-            if sum(CM([2 3])) == 0
+            if sum(diag(CM)) == sum(CM(:))
                 mi = 1;
-            elseif sum(CM([1 4])) == 0
+            elseif sum(diag(CM)) == 0
                 mi = 0;
             else
                 mi = sum(sum(p.*log2(p./pij)));

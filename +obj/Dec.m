@@ -385,8 +385,10 @@ classdef Dec < dj.Computed
                         [pre, sc] = predict(DEC,test_data(cell_idx(cell_num(icell,:)),tidx)'); % test decoder
                         
                         % Assign performance data into bins
-                        p =  (pre == test_groups(tidx)');
-                        r =  (pre == test_shfl_groups(tidx)');
+%                         p =  (pre == test_groups(tidx)');
+%                         r =  (pre == test_shfl_groups(tidx)');
+                        p = pre;
+                        r = pre;
                         for igroup = 1:group_num
                             P{igroup}(icell,test_data_idx(tidx & test_groups==igroup)) = p(test_groups(tidx)==igroup);
                             R{igroup}(icell,data_shfl_idx(tidx & test_shfl_groups==igroup)) = ...
