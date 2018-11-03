@@ -103,7 +103,6 @@ classdef Decode < dj.Computed
                 bin = fetch1(obj.DecodeOpt & key, 'binsize');
             end
             
-            
             % get traces
             [Traces, caTimes, keys] = getAdjustedSpikes(fuse.ActivityTrace &...
                 (anatomy.AreaMembership & key),'soma'); % [time cells]

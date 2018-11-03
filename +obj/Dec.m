@@ -571,32 +571,30 @@ classdef Dec < dj.Computed
             set(gca,'fontsize',params.fontsize)
         end
         
-        function perf = getPerformance(self,mi,p)
+        function [perf, keys] = getPerformance(self,mi,p)
             
             if nargin>1 && mi
                 fun = @(x) obj.Decode.getMI(x);
             else
                 fun = @(x) nanmean(x);
             end
-            if nargin>2 && ischar(p)
-                p = fetchn(self,p);
-            else
-                p = fetchn(self,'p');
-            end
-            perf = cell(length(p),1);
-            for ikey = 1:length(p)
-                for icell = 1:size(p{ikey}{1},3)
-                    pp = cellfun(@(y) y(:,:,icell),p{ikey},'uni',0);
-                    min_idx = min(min(cellfun(@(x) size(x,2),pp)));
-                    pp = num2cell(double(cell2mat(cellfun(@(x) x(:,1:min_idx),pp,'uni',0))),2);
-                    
-                    perf{ikey}(:,icell) = (cellfun(@(x) fun(x),pp));
-                end
-            end
-            %             if length(p)==1
-            %                 perf = perf{1};
-            %             end
             
+            if nargin>2 && ischar(p)
+                [p, keys] = fetchn(self,p);
+            else
+                [p, keys] = fetchn(self,'p');
+            end
+            perf = nan(length(p),1);
+            for ikey = 1:length(p)
+                CM = nan(length(p{ikey}));
+                for igroup = 1:length(p{ikey})
+                    for itest = 1:length(p{ikey})
+                       CM(igroup,itest) = nansum(p{ikey}{igroup}(:)==itest);
+                    end
+                end
+                
+                perf(ikey) = self.getMI(CM);
+            end
         end
         
         function params = getParams(self, param_type)
@@ -611,17 +609,14 @@ classdef Dec < dj.Computed
     end
 
     methods (Static)
-        function mi = getMI(R)
-            CM = nan(2,2);
-            CM([1 4]) = nansum(R(:)==1);
-            CM([2 3]) = nansum(R(:)==0);
-            p = CM/sum(CM(:));
+        function mi = getMI(CM)
+           p = CM/sum(CM(:));
             pi = sum(CM,2)/sum(CM(:));
             pj = sum(CM,1)/sum(CM(:));
             pij = pi*pj;
-            if sum(CM([2 3])) == 0
+            if sum(diag(CM)) == sum(CM(:))
                 mi = 1;
-            elseif sum(CM([1 4])) == 0
+            elseif sum(diag(CM)) == 0
                 mi = 0;
             else
                 mi = sum(sum(p.*log2(p./pij)));
