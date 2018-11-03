@@ -1,6 +1,6 @@
 %{
 olf.Responses (computed) #
--> reso.FluorescenceTrace
+-> reso.ScanDone
 -> olf.RespOpt
 ---
 resp_on                    : mediumblob                    # on response matrix [stimuli trials]
