@@ -1,6 +1,5 @@
 %{
-olf.Responses (computed) #
--> reso.ScanDone
+-> reso.FluorescenceTrace
 -> olf.RespOpt
 ---
 resp_on                    : mediumblob                    # on response matrix [stimuli trials]
@@ -11,7 +10,7 @@ stimuli                     : mediumblob                    # stimuli
 
 classdef Responses < dj.Computed
     
-    properties (Constant)
+    properties
          keySource = (reso.FluorescenceTrace*olf.RespOpt('process = "yes"') & olf.Sync)
     end
     
