@@ -19,13 +19,19 @@ classdef Responses < dj.Computed
         function makeTuples(obj,key)
             
             % fetch stuff
-            trace = fetch1(reso.FluorescenceTrace & key,'trace');
+            trace = double(fetch1(reso.FluorescenceTrace & key,'trace'));
             fps = fetch1(reso.ScanInfo & key,'fps');
             stimTrials = fetch1(olf.Sync & key,'trials');
             [trials, stims] = fetchn( olf.StimPeriods & (olf.Sync & key),'trial','stimulus');
             [on,off,base, on_delay, off_delay] = fetchn(olf.RespOpt & key,...
                 'response_period','off_response_period','baseline_period','response_delay','off_response_delay');
             
+            % process traces
+            hp = 0.02; 
+            trace = trace + abs(min(trace(:)))+eps;
+            trace = trace./ne7.dsp.convmirr(trace,hamming(round(fps/hp)*2+1)/sum(hamming(round(fps/hp)*2+1)))-1;  %  dF/F where F is low pass
+            trace = trace - prctile(trace,10);
+
             % compute stimuli
             ustims = unique(stimTrials);
             mxtrial = max(ustims([1 diff(ustims)]==1));
