@@ -196,10 +196,10 @@ classdef Dec < dj.Computed
             
             % get decoder parameters
             [decoder,k_fold,shuffle,repetitions,select_method, ...
-                dec_params, neurons,fold_selection, binsize] = ...
+                dec_params, neurons,fold_selection, binsize, dat_norm] = ...
                 fetch1(obj.DecodeOpt & key,...
                 'decoder','k_fold','shuffle','repetitions','select_method',...
-                'dec_params','neurons','fold_selection','binsize');
+                'dec_params','neurons','fold_selection','binsize','normalize');
             
             
             % define decoder function
@@ -282,10 +282,13 @@ classdef Dec < dj.Computed
                 test_data_idx = cell2mat(test_data_idx);
                 
                 % normalize data
-%                 mdata = mean(data,2);
-%                 sdata = std(data,[],2);
-                mdata = zeros(size(data,1),1);
-                sdata = ones(size(data,1),1);
+                if dat_norm
+                    mdata = mean(data,2);
+                    sdata = std(data,[],2);
+                else
+                    mdata = zeros(size(data,1),1);
+                    sdata = ones(size(data,1),1);
+                end
 
                 data = bsxfun(@rdivide, bsxfun(@minus,data,mdata),sdata);
                 test_data = bsxfun(@rdivide, bsxfun(@minus,test_data,mdata),sdata);
@@ -391,15 +394,9 @@ classdef Dec < dj.Computed
                         
                         % run classifier
                         DEC = decoder_func(data(cell_idx(cell_num(icell,:)),idx)',groups(idx)');
-%                         if strcmp(decoder,'fitcecoc')
-%                             [pre, loss, sc] = predict(DEC,test_data(cell_idx(cell_num(icell,:)),tidx)'); % test decoder
-%                         else
-                            [pre, sc] = predict(DEC,test_data(cell_idx(cell_num(icell,:)),tidx)'); % test decoder
-%                         end
+                        [pre, sc] = predict(DEC,test_data(cell_idx(cell_num(icell,:)),tidx)'); % test decoder
                         
                         % Assign performance data into bins
-%                         p =  (pre == test_groups(tidx)');
-%                         r =  (pre == test_shfl_groups(tidx)');
                         p = pre;
                         r = pre;
                         for igroup = 1:group_num
@@ -409,8 +406,6 @@ classdef Dec < dj.Computed
                             S{igroup}(icell,test_data_idx(tidx & test_groups==igroup)) = sc(test_groups(tidx)==igroup,1);
                             D{igroup}{icell,ibin}(1,:) = DEC.BinaryLearners{igroup}.Beta;
                             D{igroup}{icell,ibin}(2,:) = repmat(DEC.BinaryLearners{igroup}.Bias,sum(cell_num(icell,:)),1);
-%                             D{igroup}{icell,ibin}(3,:) = DEC.BinaryLearners{igroup}.Mu;
-%                             D{igroup}{icell,ibin}(4,:) = DEC.BinaryLearners{igroup}.Sigma;
                             D{igroup}{icell,ibin}(3,:) = mdata(cell_idx(cell_num(icell,:)));
                             D{igroup}{icell,ibin}(4,:) = sdata(cell_idx(cell_num(icell,:)));
                         end
