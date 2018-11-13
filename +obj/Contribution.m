@@ -1,8 +1,8 @@
 %{
 -> obj.Dec
 ---
-auc_total        :double                #area under the curve [classes reps]
-auc              :double                #area under the curve [classes reps neurons]
+auc_total        :longblob                #area under the curve [classes reps]
+auc              :longblob                #area under the curve [classes reps neurons]
 %}
 
 classdef Contribution < dj.Computed
@@ -16,10 +16,15 @@ classdef Contribution < dj.Computed
         function makeTuples(self, key)
             steps = [0:1:100];
             Ef = [];
-            [p,t,c] = fetch1(obj.Dec & k,'p','trial_info','classifier');
+            [p,t,c] = fetch1(obj.Dec & key,'p','trial_info','classifier');
             
-            [Data, Stims, info, Unit_ids] = getData(obj.Dec,k,[],0);
-            Stim = reshape(repmat([1 2 3 4],size(Data{stim_idx(1)},2),1),[],1);
+            [Data, Stims, info, Unit_ids] = getData(obj.Dec,key,[],0);
+            
+            dec_stims = cellfun(@unique,t.names);Stim = [];
+            for istim = 1:length(dec_stims)
+                stim_idx(istim) = find(strcmp(Stims,dec_stims{istim}));
+                Stim = [Stim;ones(size(Data{stim_idx(istim)},2),1)*istim];
+            end
             Data = cell2mat(Data(stim_idx));
             
             for iclass = 1:length(c{1})
