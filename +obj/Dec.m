@@ -213,9 +213,6 @@ classdef Dec < dj.Computed
             
             PP = cell(repetitions,1); RR = PP;Cells = [];SC = PP;txt = '';
             for irep = 1:repetitions
-                fprintf(repmat('\b',1,length(txt)));
-                txt= sprintf('Rep# %d/%d ',irep,repetitions);
-                fprintf('%s',txt);
                 rseed = RandStream('mt19937ar','Seed',irep);
                 
                 % initialize
@@ -289,7 +286,7 @@ classdef Dec < dj.Computed
                     mdata = zeros(size(data,1),1);
                     sdata = ones(size(data,1),1);
                 end
-
+                
                 data = bsxfun(@rdivide, bsxfun(@minus,data,mdata),sdata);
                 test_data = bsxfun(@rdivide, bsxfun(@minus,test_data,mdata),sdata);
                 
@@ -383,6 +380,11 @@ classdef Dec < dj.Computed
                 P = cellfun(@(x) nan(size(cell_num,1),size(x,2),'single'),test_Data,'uni',0);R = P;S = P;D = [];
                 for icell = 1:size(cell_num,1) % For each cell permutation
                     for ibin = 1:bins          % For each fold
+                        % print report
+                        fprintf(repmat('\b',1,length(txt)));
+                        txt= sprintf('Rep# %d/%d  Cell# %d/%d  Bin# %d/%d',irep,repetitions,icell,size(cell_num,1),ibin,bins);
+                        fprintf('%s',txt);
+                
                         % select training/testing bin
                         if bins==1 % no crossvalidation case, testing on training dataset
                             idx = logical(train_idx);
@@ -426,65 +428,26 @@ classdef Dec < dj.Computed
             SC = cellfun(@cell2mat,mat2cell(cellfun(@(x) permute(x,[3 2 1]),permute(reshape([SC{:}],...
                 length(Data),repetitions),[2 1]),'uni',0),repetitions,ones(1,length(Data))),'uni',0);
             DC = num2cell(permute(reshape([DC{:}],length(Data),repetitions),[2 1]),2);
-
+            
         end
         
-        function plotMasks(self,norm,target_cell_num)
+        function plotMasks(self,varargin)
             
             params.fontsize = 10;
+            params.mi = 1;
+            params.target_cell_num = [];
             
+            params = getParams(params,varargin);
+             
             % get data
-            [perf, area, trial_info] = fetchn(self & 'brain_area <> "unknown"',...
-                'p','brain_area','trial_info');
+            [area, keys] = fetchn(self & 'brain_area <> "unknown"',...
+                'brain_area');
             
             areas = unique(area);
             MI = cell(size(areas));
             for iarea = 1:length(areas)
-                idx = find(strcmp(area,areas(iarea)));
-                if nargin>1 && norm
-                    labl = 'Mutual Information (bits)';
-                    mi = nan(length(idx),1);
-                    for iscan = 1:length(idx)
-                        R = cell2mat(reshape(perf{idx(iscan)},1,[]));
-                        if nargin>2
-                            cellnum = cellfun(@length,trial_info{idx(iscan)}.units{1});
-                            cell_idx = find(cellnum>=target_cell_num,1,'first');
-                            R = R(:,:,cell_idx);
-                        end
-                        CM = nan(2,2);
-                        CM([1 4]) = nansum(R(:)==1);
-                        CM([2 3]) = nansum(R(:)==0);
-                        p = CM/sum(CM(:));
-                        pi = sum(CM,2)/sum(CM(:));
-                        pj = sum(CM,1)/sum(CM(:));
-                        pij = pi*pj;
-                        if sum(CM([2 3])) == 0 && numel(R)>0
-                            mi(iscan) = 1;
-                        elseif sum(CM([1 4])) == 0
-                            mi(iscan) = 0;
-                        else
-                            mi(iscan) = sum(sum(p.*log2(p./pij)));
-                        end
-                    end
-                    %MI{iarea} = mi./double(cells(idx));
-                    MI{iarea} = mi;
-                else
-                    labl = 'Classification performance (%)';
-                    mi = nan(length(idx),1);
-                    for iscan = 1:length(idx)
-                        R = cell2mat(reshape(perf{idx(iscan)},1,[]));
-                        if nargin>2
-                            cellnum = cellfun(@length,trial_info{idx(iscan)}.units{1});
-                            cell_idx = find(cellnum>=target_cell_num,1,'first');
-                            R = R(:,:,cell_idx);
-                        end
-                        mi(iscan) = nanmean(R(:));
-                    end
-                    MI{iarea} = mi;
-                    %  if nargin>2 && target_cell_num>cells(idx)
-                    %  MI{iarea} = cellfun(@(x) nanmean(reshape(cellfun(@(xx) double(nanmean(xx(:))),x),[],1)), perf(idx));
-                    %  end
-                end
+                idx = (strcmp(area,areas(iarea)));
+                MI{iarea} = getPerformance(self & keys(idx),params.mi);
             end
             
             % plot
@@ -493,8 +456,6 @@ classdef Dec < dj.Computed
             plotMask(anatomy.Masks)
             colormap parula
             c = colorbar;
-            ylabel(c,labl,'Rotation',-90,'VerticalAlignment','baseline','fontsize',params.fontsize)
-            
             
             mx = max(cellfun(@nanmean,MI));
             mn = min(cellfun(@nanmean,MI));
@@ -504,12 +465,15 @@ classdef Dec < dj.Computed
                 idx = double(uint8(floor(((mi-mn)/(mx - mn))*0.99*size(colors,1)))+1);
                 plotMask(anatomy.Masks & ['brain_area="' areas{iarea} '"'],colors(idx,:),sum(~isnan(MI{iarea})))
             end
-            if nargin>1 && norm
-                set(c,'ytick',linspace(0,1,5),'yticklabel',roundall(linspace(mn,mx,5),10^-round(abs(log10(mn)))))
+            
+            if params.mi
+                labl = 'Mutual Information (bits)';
+                set(c,'ytick',linspace(0,1,5),'yticklabel',roundall(linspace(mn,mx,5),10^-round(abs(log10(mn/10)))))
             else
+                labl = 'Classification performance (%)';
                 set(c,'ytick',linspace(0,1,5),'yticklabel',round(linspace(mn*100,mx*100,5)))
             end
-            
+            ylabel(c,labl,'Rotation',-90,'VerticalAlignment','baseline','fontsize',params.fontsize)
         end
         
         function params = plotCells(self, varargin)
@@ -517,15 +481,13 @@ classdef Dec < dj.Computed
             params.mi = false;
             params.figure = [];
             params.fontsize = 10;
-            params.norm = 0;
             
             params = getParams(params,varargin);
             
-            
             [areas,keys] = fetchn(self,'brain_area');
             
-            trials_info = fetchn(obj.Decode & keys,'trial_info');
-            MI = getPerformance(obj.Decode & keys,params.mi);
+            trials_info = fetchn(self & keys,'trial_info');
+            MI = getPerformance(self & keys,params.mi);
             cell_num = cellfun(@(x) cellfun(@length,x),cellfun(@(x) x.units{1,end},trials_info,'uni',0),'uni',0);
             
             if nargin>1 && ~isempty(params.mx_cell)
@@ -537,10 +499,6 @@ classdef Dec < dj.Computed
                 cell_idx = repmat(find(cell_num{1}==params.mx_cell),length(MI),1);
             else
                 cell_idx = cellfun(@(x) length(x), cell_num);
-            end
-            
-            if params.norm
-               MI = cellfun(@(x,y) normalize(x(:,1:y),2),MI,num2cell(cell_idx,2),'uni',0); 
             end
             
             if isempty(params.figure)
@@ -569,12 +527,9 @@ classdef Dec < dj.Computed
             params.l = legend(h,un_areas);
             if ~params.mi && ~params.norm
                 ylabel('Performance (% correct)')
-                 plot(get(gca,'xlim'),[0.5 0.5],'-.','color',[0.5 0.5 0.5]);
+                plot(get(gca,'xlim'),[0.5 0.5],'-.','color',[0.5 0.5 0.5]);
             elseif params.mi && ~params.norm
                 ylabel('Mutual Information (bits)')
-            elseif params.norm
-                ylabel('Normalized performance')
-                grid on
             end
             xlabel('# of Cells')
             set(params.l,'box','off','location','northwest','fontsize',params.fontsize)
@@ -583,27 +538,31 @@ classdef Dec < dj.Computed
         
         function [perf, keys] = getPerformance(self,mi,p)
             
-            if nargin>1 && mi
-                fun = @(x) obj.Decode.getMI(x);
-            else
-                fun = @(x) nanmean(x);
-            end
-            
             if nargin>2 && ischar(p)
                 [p, keys] = fetchn(self,p);
             else
                 [p, keys] = fetchn(self,'p');
             end
-            perf = nan(length(p),1);
+            
+            perf = cell(length(p),1);
             for ikey = 1:length(p)
-                CM = nan(length(p{ikey}));
-                for igroup = 1:length(p{ikey})
-                    for itest = 1:length(p{ikey})
-                       CM(igroup,itest) = nansum(p{ikey}{igroup}(:)==itest);
+                for icell = 1:size(p{ikey}{1},3)
+                    P = cellfun(@(x) x(:,:,icell),p{ikey},'uni',0);
+                    CM = nan(length(P));
+                    for igroup = 1:length(P)
+                        for itest = 1:length(P)
+                            CM(igroup,itest) = nansum(P{igroup}(:)==itest);
+                        end
+                    end
+                    if nargin>1 && mi
+                        perf{ikey}(icell) = self.getMI(CM);
+                    else
+                        perf{ikey}(icell) = sum(diag(CM))/sum(CM(:));
                     end
                 end
-                
-                perf(ikey) = self.getMI(CM);
+            end
+            if all(cellfun(@length,perf)==1)
+                perf = cell2mat(perf);
             end
         end
         
@@ -617,10 +576,10 @@ classdef Dec < dj.Computed
             end
         end
     end
-
+    
     methods (Static)
         function mi = getMI(CM)
-           p = CM/sum(CM(:));
+            p = CM/sum(CM(:));
             pi = sum(CM,2)/sum(CM(:));
             pj = sum(CM,1)/sum(CM(:));
             pij = pi*pj;
