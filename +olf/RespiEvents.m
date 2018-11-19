@@ -151,8 +151,11 @@ classdef RespiEvents < dj.Imported
             key = fetch(self);
             [lpd,p,t] = fetch1(self,'filtered_trace','peak_times','trough_times');
             figure
+            data = data - mean(data);
             plot((1:length(data))/fps,data)
             hold on
+            mn = mean(lpd);
+            lpd = lpd - mn;
             plot((1:length(lpd))/fps,lpd)
             plot(p/fps,ones(size(p))*mean(lpd),'.g','markersize',15)
             plot(t/fps,ones(size(t))*mean(lpd),'.b','markersize',15)

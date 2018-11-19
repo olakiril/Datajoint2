@@ -79,4 +79,13 @@ classdef Responses < dj.Computed
             
         end
     end
+    
+    methods (Static)
+        function trace = dfof(trace,fps)
+            hp = 0.02; 
+            trace = trace + abs(min(trace(:)))+eps;
+            trace = trace./ne7.dsp.convmirr(trace,hamming(round(fps/hp)*2+1)/sum(hamming(round(fps/hp)*2+1)))-1;  %  dF/F where F is low pass
+            trace = trace - prctile(trace,10); 
+        end
+    end
 end
