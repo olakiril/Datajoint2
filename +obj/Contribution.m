@@ -70,6 +70,39 @@ classdef Contribution < dj.Computed
 
         end
     end
+    
+     methods
+       function plot(self,varargin)
+            
+            params.fontsize = 10;
+            params.v = 1;
+            params.target_cell_num = [];
+            
+            params = getParams(params,varargin);
+             
+            % get data
+            [area, auc, auc_total, keys] = fetchn(self & 'brain_area <> "unknown"',...
+                'brain_area','auc','auc_total');
+            
+            areas = unique(area);
+            MI = cell(size(areas));
+            colors = hsv(length(areas));
+            for iarea = 1:length(areas)
+                idx = (strcmp(area,areas(iarea)));
+                c = cell2mat(cellfun(@(x,y) sort(squeeze(mean(mean(bsxfun(@minus,y,x),2))),'ASC'),auc(idx),auc_total(idx),'uni',0)')';
+                mean(kurtosis(c,[],2))
+                errorPlot(1:size(c,2),c,'errorColor',colors(iarea,:))
+            end
+             
+            l = legend(areas);
+            set(l,'box','off','location','northwest')
+            ylabel('AUC gain')
+            xlabel('Neurons (sorted)')
+            title('Contribution')
+       end
+     end
+    
+     
 end
 
 

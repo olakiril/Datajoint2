@@ -447,7 +447,9 @@ classdef Dec < dj.Computed
             MI = cell(size(areas));
             for iarea = 1:length(areas)
                 idx = (strcmp(area,areas(iarea)));
-                MI{iarea} = getPerformance(self & keys(idx),params.mi);
+                p = getPerformance(self & keys(idx),params.mi);
+                if iscell(p);p = cellfun(@nanmean,p);end
+                MI{iarea} = p;
             end
             
             % plot
@@ -525,10 +527,10 @@ classdef Dec < dj.Computed
                 end
             end
             params.l = legend(h,un_areas);
-            if ~params.mi && ~params.norm
+            if ~params.mi
                 ylabel('Performance (% correct)')
                 plot(get(gca,'xlim'),[0.5 0.5],'-.','color',[0.5 0.5 0.5]);
-            elseif params.mi && ~params.norm
+            elseif params.mi 
                 ylabel('Mutual Information (bits)')
             end
             xlabel('# of Cells')
@@ -579,17 +581,12 @@ classdef Dec < dj.Computed
     
     methods (Static)
         function mi = getMI(CM)
+            CM = CM+eps;
             p = CM/sum(CM(:));
             pi = sum(CM,2)/sum(CM(:));
             pj = sum(CM,1)/sum(CM(:));
             pij = pi*pj;
-            if sum(diag(CM)) == sum(CM(:))
-                mi = 1;
-            elseif sum(diag(CM)) == 0
-                mi = 0;
-            else
-                mi = sum(sum(p.*log2(p./pij)));
-            end
+            mi = sum(sum(p.*log2(p./pij)));
         end
     end
 end
