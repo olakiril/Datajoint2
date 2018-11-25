@@ -39,7 +39,8 @@ classdef Responses < dj.Computed
                 stimTrials= interp1(stimTrials,linspace(1,length(stimTrials),length(stimTrials)*10),'linear');
                 fps = fps*10;
                 [peak_times,trough_times,trace_fs] = fetch1(olf.RespiEvents * olf.RespiRaw  & key & 'respi_opt = 1','peak_times','trough_times','trace_fs');
-                rTimes = {trough_times/trace_fs*fps,peak_times/trace_fs*fps}; 
+                mn = min([length(trough_times) length(peak_times)]);
+                rTimes = {trough_times(1:mn)/trace_fs*fps,peak_times(1:mn)/trace_fs*fps}; 
                 if strcmp(respiration,'troughs'); rTimes = fliplr(rTimes);end
                 if min(rTimes{1})>min(rTimes{2})
                      X1 = [rTimes{1}(1:end-1);rTimes{2}(1:end-1)];
