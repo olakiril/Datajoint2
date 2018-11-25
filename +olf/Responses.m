@@ -33,10 +33,26 @@ classdef Responses < dj.Computed
             trace = trace - prctile(trace,10);
             
             % restrict to inhalation periods
-            if strcmp(respiration,'peaks')
-                
-            elseif strcmp(respiration,'troughs')
-                
+            if any(strcmp(respiration,{'peaks','troughs'}))
+                % upsample traces to get presice bining
+                trace= interp1(trace,linspace(1,length(trace),length(trace)*10),'linear');
+                stimTrials= interp1(stimTrials,linspace(1,length(stimTrials),length(stimTrials)*10),'linear');
+                fps = fps*10;
+                [peak_times,trough_times,trace_fs] = fetch1(olf.RespiEvents * olf.RespiRaw  & key & 'respi_opt = 1','peak_times','trough_times','trace_fs');
+                rTimes = {trough_times/trace_fs*fps,peak_times/trace_fs*fps}; 
+                if strcmp(respiration,'troughs'); rTimes = fliplr(rTimes);end
+                if min(rTimes{1})>min(rTimes{2})
+                     X1 = [rTimes{1}(1:end-1);rTimes{2}(1:end-1)];
+                     X2 = [rTimes{1}(2:end);rTimes{2}(1:end-1)];
+                else
+                     X1 = [rTimes{1}(1:end-1);rTimes{2}(2:end)];
+                     X2 = [rTimes{1}(2:end);rTimes{2}(2:end)];  
+                end
+                X1 = max(min(round(mean(X1)),length(trace)),1);
+                X2 = max(min(round(mean(X2)),length(trace)),1);
+                for i = 1:length(X1)
+                    trace(X1(i):X2(i)) = nan;
+                end
             end
             
             % compute stimuli
