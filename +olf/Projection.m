@@ -1,7 +1,7 @@
 %{
 -> reso.FluorescenceTrace
 ---
-projection                    : binary                    # mask with signal in red channel
+projection                    : int8                    # mask with signal in red channel
 %}
 
 
@@ -16,15 +16,17 @@ classdef Projection < dj.Computed
         function makeTuples(obj,key)
             
             % get avg image
-            im = fetch1(reso.SummaryImagesAverage & key,'average_image');
-
+            key2 = key;
+            key2.channel = 2;
+            im = fetch1(reso.SummaryImagesAverage & key2,'average_image');
+            backim = false(size(im));
+            
             % get mask
             [px,wt] = fetch1(reso.SegmentationMask & key,'pixels','weights');
 
             BW = backim;
             BW(px) = wt;
 
-            B = bwboundaries(BW,'noholes');
             stat = regionprops(BW,'EquivDiameter');
             BW2 = imerode(BW,strel('sphere',round(stat.EquivDiameter/3)));
             BWD = convn(BW,gausswin(40)*gausswin(40)','same');
