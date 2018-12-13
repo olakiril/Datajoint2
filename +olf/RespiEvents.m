@@ -134,7 +134,7 @@ classdef RespiEvents < dj.Imported
             end
             p = peaks;
             p(any(p_idx)) = [];
-           
+            
             % insert
             key.peaks = lpd(p);
             key.troughs = lpd(t);
@@ -150,19 +150,36 @@ classdef RespiEvents < dj.Imported
             [fps, data] = fetch1(olf.RespiRaw & self,'trace_fs','trace');
             key = fetch(self);
             [lpd,p,t] = fetch1(self,'filtered_trace','peak_times','trough_times');
-            figure
+            trials = fetch1(olf.Sync & self,'trials');
+            trial_fps = fetch1(reso.ScanInfo & key,'fps');
             data = data - mean(data);
-            plot((1:length(data))/fps,data)
-            hold on
             mn = mean(lpd);
             lpd = lpd - mn;
-            plot((1:length(lpd))/fps,lpd)
-            plot(p/fps,ones(size(p))*mean(lpd),'.g','markersize',15)
-            plot(t/fps,ones(size(t))*mean(lpd),'.b','markersize',15)
-            l = legend({'Raw data','Filtered Data','Expiration start','Inspiration start'});
-            ylabel('Breathing voltage')
+            
+            % convert to voltage from int16
+            lpd = lpd/(2^16/4)*2;
+            data = data/(2^16/4)*2;
+            
+            %plot
+            colors = cbrewer('qual','Set2',5);
+            figure
+            plot((1:length(data))/fps,data,'color',colors(3,:))
+            hold on
+            plot((1:length(lpd))/fps,lpd,'color',colors(2,:))
+            plot(p/fps,ones(size(p))*prctile(lpd,70),'.','color',colors(1,:),'markersize',15)
+            plot(t/fps,ones(size(t))*prctile(lpd,30),'.','color',colors(4,:),'markersize',15)
+            yl = get(gca,'ylim');
+            for itrial = 1:length(unique(trials))
+                values = find(trials==itrial);
+                plot(values/trial_fps,repmat(prctile(lpd,99),1,length(values)),'color',colors(5,:),'linewidth',3)
+            end
+            l = legend({'Raw data','Filtered Data','Expiration start','Inspiration start','stimulus'});
+            set(l,'box','off')
+            ylabel('Rel. temperature (Volts)')
             xlabel('Time(sec)')
+            title('Breathing')
             set(gcf,'name',sprintf('Animal %d session %d scan %d breathing',key.animal_id,key.session,key.scan_idx))
+            set(gca,'box','off')
         end
     end
 end

@@ -104,12 +104,89 @@ classdef Responses < dj.Computed
         end
     end
     
+    methods
+        function [Data,Stims,keys] = getData(self,varargin)
+             
+            params.pre = 3;
+            params.post = 11;
+            params.bin = 100;
+            params.mxtrial = 10;
+            params.hp = 0.02;
+            
+            params = getParams(params,varargin);
+            
+            [traces,fps,stimTrials, keys] = fetchn(reso.FluorescenceTrace * proj(reso.ScanInfo,'fps') * proj(olf.Sync,'trials') & self, 'trace','fps','trials');
+
+            R = cell(1,length(keys));
+            parfor ikey = 1:length(keys)
+
+                % fetch stuff
+                key= keys(ikey);
+                trace = double(traces{ikey});
+                trace = olf.Responses.dfof(trace,fps(ikey),params.hp);
+                [trials, stims] = fetchn( olf.StimPeriods & (olf.Sync & key),'trial','stimulus');
+                
+                % compute stimuli
+                ustims = unique(stimTrials{ikey});            
+                uniStims = unique(stims);
+
+                % calculate responses
+                RRR = cellfun(@(x) permute(x,[1 3 2]),num2cell(nan(length(uniStims),params.mxtrial,round((params.pre+params.post)*1000/params.bin)),3),'uni',0);
+                for iuni = 1:length(uniStims)
+                    stim = uniStims(iuni);
+                    uni_trials = trials(strcmp(stims,stim) & trials<=max(ustims));
+                    for itrial = 1:length(uni_trials)
+                        stim_start = find(stimTrials{ikey} == uni_trials(itrial),1,'first');
+                        tstart = stim_start - round(fps(ikey)*params.pre) - 1;
+                        tend = stim_start + round(fps(ikey)*params.post) - 1;
+                        if tend+round(fps(ikey)*params.post)-1 > length(trace)
+                            continue
+                        end
+                        RRR{iuni,itrial} = interp1(trace,linspace(tstart,tend,round((params.pre+params.post)*1000/params.bin)),'linear');
+                    end
+                end
+                R{ikey} = RRR;
+                Stims{ikey} = uniStims;
+            end
+
+            Data = permute(cell2mat(cellfun(@(x) permute(cell2mat(cellfun(@(xx) permute(xx,[1 3 2]),x(:,1:params.mxtrial),'uni',0)),[1 4 2 3]),R,'uni',0)),[4 2 1 3]); % [time cells stim trials]
+        end
+    end
+    
     methods (Static)
-        function trace = dfof(trace,fps)
-            hp = 0.02; 
+        function trace = dfof(trace,fps,hp)
+            if nargin<3 || isempty(hp)
+                hp = 0.02; 
+            end
             trace = trace + abs(min(trace(:)))+eps;
             trace = trace./ne7.dsp.convmirr(trace,hamming(round(fps/hp)*2+1)/sum(hamming(round(fps/hp)*2+1)))-1;  %  dF/F where F is low pass
-            trace = trace - prctile(trace,10); 
         end
+        
+        function stim_groups = findSimilar(stims, stim_classes)
+            
+            stim = cellfun(@str2num, stims,'uni',0);
+            stim_idx = cellfun(@(x) find(any(strcmp(repmat(x,size(sd,1),1),repmat(sd,1,size(x,2)))')),stim_classes,'uni',0);
+
+             cmb = combnk(1:size(stim,1),2);
+             
+             % create stimulus length index to select only equal stim
+             stim_length = cellfun(@length,stim);
+             length_idx = stim_length(cmb(:,1)) == stim_length(cmb(:,2));
+             
+            % 
+            cis = false(size(stim,1),1);
+            trans = false(size(stim,1),1);
+            for iclass = find(~cellfun(@isempty,stim_idx))
+                is_class = cellfun(@(x) all(any(bsxfun(@rdivide,x,stim_idx{iclass}')==1)),stim,'uni',1);
+                has_class = cellfun(@(x) any(any(bsxfun(@rdivide,x,stim_idx{iclass}')==1)),stim,'uni',1) & ~is_class;
+
+                dif_idx = any(is_class(cmb)')' & length_idx & ~all(is_class(cmb)')' ;
+                sam_idx =  (all(is_class(cmb)')' | all(has_class(cmb)')') & length_idx;
+                
+                cis(sam_idx) = true;
+                trans(dif_idx) = true;
+            end    
+        end
+        
     end
 end
