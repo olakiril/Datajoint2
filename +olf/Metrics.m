@@ -36,22 +36,21 @@ classdef Metrics < dj.Computed
             % reliability
             tuple.reliability_on = reliability(permute(resp_on,[3 1 2]));
             tuple.reliability_off = reliability(permute(resp_off,[3 1 2]));
-
+            
             % tuning width
             resp = sort(nanmean(resp_on,2),'descend');
-            [xData, yData] = prepareCurveData( [],  double(resp-min([0 min(resp(:))])));
+            [xData, yData] = prepareCurveData( [],  double(resp-min(resp(:))));
             ft = fittype( 'exp1' );
-            opts = fitoptions( 'Method', 'NonlinearLeastSquares' );
-            opts.Display = 'Off';
-            opts.StartPoint = [0 0];
+            opts = fitoptions( 'Method', 'NonlinearLeastSquares','Display','Off','StartPoint',[1 -0.05],'robust','off');
             [fitresult, ~] = fit( xData, yData, ft, opts );
             tuple.tuning_width = -log(fitresult.a/(yData(1)/2))/fitresult.b;
 
             if isinf(tuple.tuning_width) || isnan(tuple.tuning_width);
                 print('Data problem!');return;end
+            
             % responsivess
-            tuple.responsiveness_on = ttest(resp_on',0);
-            tuple.responsiveness_off = ttest(resp_off',0);
+            [~,tuple.responsiveness_on] = ttest(resp_on',0);
+            [~,tuple.responsiveness_off] = ttest(resp_off',0);
             
             % peak response
             tuple.peak_on = max(nanmean(resp_on,2));

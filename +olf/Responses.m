@@ -27,10 +27,11 @@ classdef Responses < dj.Computed
                 'response_period','off_response_period','baseline_period','response_delay','off_response_delay','respiration');
             
             % process traces
-            hp = 0.02; 
-            trace = trace + abs(min(trace(:)))+eps;
-            trace = trace./ne7.dsp.convmirr(trace,hamming(round(fps/hp)*2+1)/sum(hamming(round(fps/hp)*2+1)))-1;  %  dF/F where F is low pass
-            trace = trace - prctile(trace,10);
+%             hp = 0.02; 
+%             trace = trace + abs(min(trace(:)))+eps;
+%             trace = trace./ne7.dsp.convmirr(trace,hamming(round(fps/hp)*2+1)/sum(hamming(round(fps/hp)*2+1)))-1;  %  dF/F where F is low pass
+%             trace = trace - prctile(trace,10);
+            trace = self.dfof(trace,fps);
             
             % restrict to inhalation periods
             if any(strcmp(respiration,{'peaks','troughs'}))
