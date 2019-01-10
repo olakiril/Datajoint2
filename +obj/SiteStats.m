@@ -191,11 +191,11 @@ classdef SiteStats < dj.Computed
             
             % plot
             figure
-            barfun(R,'barwidth',0.9,'range',0.45)
+            b = barfun(R);
             set(gca,'xtick',1:size(R,1),'xticklabel',un_areas)
             ylabel(type)
             if max(is_trained)>0
-                l = legend({'Naive','Trained'});
+                l = legend(b(:,1),{'Naive','Trained'});
                 set(l,'box','off')
             end
         end
