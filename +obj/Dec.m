@@ -41,12 +41,12 @@ classdef Dec < dj.Computed
             end
             
             %Loop through each group of comparissons
-            P = cell(length(train_groups),length(train_groups{1})); P_shfl = P;score = P;
+            P = cell(length(train_groups),length(train_groups{1})); P_shfl = P;score = P;unit_idx = {};classifier = {};
             for iGroup = 1:length(train_groups)
                 fprintf('Group# %d/%d ',iGroup,length(train_groups));
                 
                 % assign training & testing data and the stimulus information for each
-                train_data = [];test_data = [];
+                train_data = [];test_data = [];class_idx = true(length(train_groups{iGroup}),1);
                 for iClass = 1:length(train_groups{iGroup})
                     
                     % Training Data
@@ -54,6 +54,7 @@ classdef Dec < dj.Computed
                     stim_idx = any(strcmp(...
                         repmat(tgroup,size(Stims,1),1),...
                         repmat(Stims,1,size(tgroup,2)))',1);
+                    if all(stim_idx==0);class_idx(iClass) = false;continue;end
                     train_data{iClass} = cell2mat(Traces(stim_idx));
                     train_info.bins{iGroup,iClass} = cell2mat(reshape(StimInfo.bins(stim_idx),[],1));
                     train_info.trials{iGroup,iClass} = cell2mat(reshape(StimInfo.trials(stim_idx),[],1));
@@ -78,7 +79,7 @@ classdef Dec < dj.Computed
                 end
                 
                 % run the decoding
-                [P(iGroup,:), P_shfl(iGroup,:), unit_idx(iGroup,:), score(iGroup,:), classifier(iGroup,:)]= ...
+                [P(iGroup,class_idx), P_shfl(iGroup,class_idx), unit_idx(iGroup,:), score(iGroup,class_idx), classifier(iGroup,:)]= ...
                     decodeMulti(self, train_data, test_data, key, Unit_ids,...
                     structfun(@(x) x(iGroup,:),train_info,'uni',0),structfun(@(x) x(iGroup,:),test_info,'uni',0));
             end
@@ -313,7 +314,7 @@ classdef Dec < dj.Computed
                     case 'single'
                         cell_num = diag(true(size(cell_idx)));
                     case 'fixed'
-                        if neurons>size(Data{1},1); error('Recording only has %d neurons!',size(Data{1},1));end
+                        if neurons>size(Data{1},1); fprintf('Recording only has %d neurons!',size(Data{1},1));return;end
                         cell_num = false(1,numel(cell_idx));
                         cell_num(1:neurons) = true;
                     case 'rf'
@@ -402,12 +403,13 @@ classdef Dec < dj.Computed
                         p = pre;
                         r = pre;
                         for igroup = 1:group_num
+                            if group_num<3;group_idx = 1;else group_idx=igroup;end
                             P{igroup}(icell,test_data_idx(tidx & test_groups==igroup)) = p(test_groups(tidx)==igroup);
                             R{igroup}(icell,data_shfl_idx(tidx & test_shfl_groups==igroup)) = ...
                                 r(test_shfl_groups(tidx)==igroup);
                             S{igroup}(icell,test_data_idx(tidx & test_groups==igroup)) = sc(test_groups(tidx)==igroup,1);
-                            D{igroup}{icell,ibin}(1,:) = DEC.BinaryLearners{igroup}.Beta;
-                            D{igroup}{icell,ibin}(2,:) = repmat(DEC.BinaryLearners{igroup}.Bias,sum(cell_num(icell,:)),1);
+                            D{igroup}{icell,ibin}(1,:) = DEC.BinaryLearners{group_idx}.Beta;
+                            D{igroup}{icell,ibin}(2,:) = repmat(DEC.BinaryLearners{group_idx}.Bias,sum(cell_num(icell,:)),1);
                             D{igroup}{icell,ibin}(3,:) = mdata(cell_idx(cell_num(icell,:)));
                             D{igroup}{icell,ibin}(4,:) = sdata(cell_idx(cell_num(icell,:)));
                         end
