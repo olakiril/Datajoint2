@@ -202,7 +202,7 @@ classdef Dec < dj.Computed
                 'decoder','k_fold','shuffle','repetitions','select_method',...
                 'dec_params','neurons','fold_selection','binsize','normalize');
             
-            
+
             % define decoder function
             if ~isempty(dec_params);dec_params = [',' dec_params];end
             decoder_func = eval(sprintf('@(X,IDs) %s(X, IDs%s)',decoder,dec_params));
@@ -548,6 +548,8 @@ classdef Dec < dj.Computed
                 [p, keys] = fetchn(self,'p');
             end
             
+            % remove empty classes
+            p = cellfun(@(x) x(~cellfun(@isempty,x)),p,'uni',0);
             perf = cell(length(p),1);
             for ikey = 1:length(p)
                 for icell = 1:size(p{ikey}{1},3)
