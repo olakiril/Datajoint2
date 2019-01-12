@@ -2,8 +2,8 @@
 # Distances in high dimentional space
 -> obj.Dec
 ---
-score                    : mediumblob             # distance from the hyperplane
-distance                 : mediumblob             # avg distance between stimuli
+score                    : longblob             # distance from the hyperplane
+distance                 : longblob             # avg distance between stimuli
 stim_idx                 : mediumblob             # stimuli index
 stim_class               : blob                   # stimuli classes
 %}
