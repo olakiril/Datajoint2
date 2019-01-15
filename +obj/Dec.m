@@ -77,6 +77,7 @@ classdef Dec < dj.Computed
                     else, test_info = train_info;
                     end
                 end
+                if isempty(train_data); error('No data selected!');end
                 
                 % run the decoding
                 [P(iGroup,class_idx), P_shfl(iGroup,class_idx), unit_idx(iGroup,:), score(iGroup,class_idx), classifier(iGroup,:)]= ...
@@ -202,7 +203,7 @@ classdef Dec < dj.Computed
                 'decoder','k_fold','shuffle','repetitions','select_method',...
                 'dec_params','neurons','fold_selection','binsize','normalize');
             
-
+            
             % define decoder function
             if ~isempty(dec_params);dec_params = [',' dec_params];end
             decoder_func = eval(sprintf('@(X,IDs) %s(X, IDs%s)',decoder,dec_params));
@@ -385,7 +386,7 @@ classdef Dec < dj.Computed
                         fprintf(repmat('\b',1,length(txt)));
                         txt= sprintf('Rep# %d/%d  Cell# %d/%d  Bin# %d/%d',irep,repetitions,icell,size(cell_num,1),ibin,bins);
                         fprintf('%s',txt);
-                
+                        
                         % select training/testing bin
                         if bins==1 % no crossvalidation case, testing on training dataset
                             idx = logical(train_idx);
@@ -440,7 +441,7 @@ classdef Dec < dj.Computed
             params.target_cell_num = [];
             
             params = getParams(params,varargin);
-             
+            
             % get data
             [area, keys] = fetchn(self & 'brain_area <> "unknown"',...
                 'brain_area');
@@ -449,7 +450,7 @@ classdef Dec < dj.Computed
             MI = cell(size(areas));
             for iarea = 1:length(areas)
                 idx = (strcmp(area,areas(iarea)));
-                p = getPerformance(self & keys(idx),params.mi);
+                p = getPerformance(self & keys(idx),params);
                 if iscell(p);p = cellfun(@nanmean,p);end
                 MI{iarea} = p;
             end
@@ -532,7 +533,7 @@ classdef Dec < dj.Computed
             if ~params.mi
                 ylabel('Performance (% correct)')
                 plot(get(gca,'xlim'),[0.5 0.5],'-.','color',[0.5 0.5 0.5]);
-            elseif params.mi 
+            elseif params.mi
                 ylabel('Mutual Information (bits)')
             end
             xlabel('# of Cells')
@@ -540,19 +541,31 @@ classdef Dec < dj.Computed
             set(gca,'fontsize',params.fontsize)
         end
         
-        function [perf, keys] = getPerformance(self,mi,p)
+        function [perf, keys] = getPerformance(self,varargin)
             
-            if nargin>2 && ischar(p)
-                [p, keys] = fetchn(self,p);
-            else
-                [p, keys] = fetchn(self,'p');
-            end
+            params.target_cell_num = [];
+            params.perf = 'p';
+            params.mi = 1;
+            
+            params = getParams(params,varargin);
+            
+            if nargin<3 || ~ischar(p);  p = 'p'; end
+            [p, ti, keys] = fetchn(self, params.perf,'trial_info');
+            
             
             % remove empty classes
             p = cellfun(@(x) x(~cellfun(@isempty,x)),p,'uni',0);
             perf = cell(length(p),1);
             for ikey = 1:length(p)
-                for icell = 1:size(p{ikey}{1},3)
+                if isempty(params.target_cell_num)
+                    ncel =1:size(p{ikey}{1},3);
+                else
+                    ci = cellfun(@(x) max([find(cell2mat(cellfun(@length,x.units{1},'uni',0))>...
+                        params.target_cell_num-1,1,'first'),0]),ti);
+                    ncel = ci(ikey);
+                    if ncel==0;continue;end
+                end
+                for icell = ncel
                     P = cellfun(@(x) x(:,:,icell),p{ikey},'uni',0);
                     CM = nan(length(P));
                     for igroup = 1:length(P)
@@ -560,10 +573,10 @@ classdef Dec < dj.Computed
                             CM(igroup,itest) = nansum(P{igroup}(:)==itest);
                         end
                     end
-                    if nargin>1 && mi
-                        perf{ikey}(icell) = self.getMI(CM);
+                    if nargin>1 && params.mi
+                        perf{ikey}(end+1) = self.getMI(CM);
                     else
-                        perf{ikey}(icell) = sum(diag(CM))/sum(CM(:));
+                        perf{ikey}(end+1) = sum(diag(CM))/sum(CM(:));
                     end
                 end
             end

@@ -2,10 +2,9 @@
 # Distances in high dimentional space
 -> obj.Dec
 ---
-score                    : longblob             # distance from the hyperplane
-distance                 : longblob             # avg distance between stimuli
+hyp_dist                 : longblob               # distance from the hyperplane
+raw_dist                 : longblob               # avg distance between stimuli
 stim_idx                 : mediumblob             # stimuli index
-stim_class               : blob                   # stimuli classes
 %}
 
 classdef Space < dj.Computed
@@ -64,12 +63,32 @@ classdef Space < dj.Computed
             end
             
             % insert
-            key.score = hDist;
-            key.distance = eDist;
+            key.hyp_dist = hDist;
+            key.raw_dist = eDist;
             key.stim_idx = stimVec;
-            key.stim_class = Stims;
             self.insert(key)
         end
     end
     
+    methods
+        function cell_num = getCellNum(self, key)
+            if nargin<2; restr = proj(self);else restr = key;end
+            ti = fetchn(obj.Dec & restr,'trial_info');
+            cell_num = [];
+            for ikey = 1:length(ti)
+                cell_num{ikey} = cellfun(@length,ti{ikey}.units{1});
+            end
+            if ikey==1;cell_num=cell_num{1};end
+        end
+        
+        function stim_names = getStim(self, key)
+            if nargin<2; restr = proj(self);else restr = key;end
+            ti = fetchn(obj.Dec & restr,'trial_info');
+            stim_names = [];
+            for ikey = 1:length(ti)
+                stim_names{ikey} = cellfun(@unique,ti{ikey}.names,'uni',0);
+            end
+            if ikey==1;stim_names=stim_names{1};end
+        end
+    end
 end
