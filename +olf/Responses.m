@@ -117,7 +117,7 @@ classdef Responses < dj.Computed
             
             params = getParams(params,varargin);
             
-            [traces,fps,stimTrials, keys] = fetchn(reso.FluorescenceTrace * proj(reso.ScanInfo,'fps') * proj(olf.Sync,'trials') & self, 'trace','fps','trials');
+            [traces,fps,stimTrials, keys] = fetchn((reso.FluorescenceTrace & self) * proj(reso.ScanInfo,'fps') * proj(olf.Sync,'trials') & self, 'trace','fps','trials');
             
             R = cell(1,length(keys));
             

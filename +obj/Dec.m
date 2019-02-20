@@ -439,8 +439,17 @@ classdef Dec < dj.Computed
             params.fontsize = 10;
             params.mi = 1;
             params.target_cell_num = [];
+            params.mx = [];
+            params.mn = [];
+            params.tinybar = true;
+            params.colormap = [];
             
             params = getParams(params,varargin);
+            
+            % adjust colors
+            if isempty(params.colormap)
+                 params.colormap = parula(30);
+            end
             
             % get data
             [area, keys] = fetchn(self & 'brain_area <> "unknown"',...
@@ -457,42 +466,47 @@ classdef Dec < dj.Computed
             
             % plot
             figure;
-            colors = parula(30);
             plotMask(anatomy.Masks)
-            colormap parula
+            colormap(params.colormap)
             c = colorbar;
             
+           % set min/max
             mx = max(cellfun(@nanmean,MI));
             mn = min(cellfun(@nanmean,MI));
+            if ~isempty(params.mx);mx = params.mx;end
+             if ~isempty(params.mn);mn = params.mn;end
+             
             for iarea = 1:length(areas)
                 mi = nanmean(MI{iarea});
                 if isnan(mi);continue;end
-                idx = double(uint8(floor(((mi-mn)/(mx - mn))*0.99*size(colors,1)))+1);
-                plotMask(anatomy.Masks & ['brain_area="' areas{iarea} '"'],colors(idx,:),sum(~isnan(MI{iarea})))
+                idx = double(uint8(floor(((mi-mn)/(mx - mn))*0.99*size(params.colormap,1)))+1);
+                plotMask(anatomy.Masks & ['brain_area="' areas{iarea} '"'],params.colormap(idx,:),sum(~isnan(MI{iarea})))
             end
             
+            if params.tinybar; ml = 2;else ml =5;end
             if params.mi
                 labl = 'Mutual Information (bits)';
-                set(c,'ytick',linspace(0,1,5),'yticklabel',roundall(linspace(mn,mx,5),10^-round(abs(log10(mn/10)))))
+                set(c,'ytick',linspace(0,1,ml),'yticklabel',roundall(linspace(mn,mx,ml),10^-round(abs(log10(mn/10)))))
             else
                 labl = 'Classification performance (%)';
-                set(c,'ytick',linspace(0,1,5),'yticklabel',round(linspace(mn*100,mx*100,5)))
+                set(c,'ytick',linspace(0,1,ml),'yticklabel',round(linspace(mn*100,mx*100,ml)))
             end
+            if params.tinybar; set(c,'Position',[0.88 0.14 0.025 0.3]);end
             ylabel(c,labl,'Rotation',-90,'VerticalAlignment','baseline','fontsize',params.fontsize)
+            set(gcf,'name','Decoding performance - All areas')
         end
         
-        function params = plotCells(self, varargin)
+        function paramsExp = plotCells(self, varargin)
             params.mx_cell = [];
-            params.mi = false;
+            params.mi = true;
             params.figure = [];
             params.fontsize = 10;
+            params.linewidth = 2;
             
             params = getParams(params,varargin);
             
-            [areas,keys] = fetchn(self,'brain_area');
-            
-            trials_info = fetchn(self & keys,'trial_info');
-            MI = getPerformance(self & keys,params.mi);
+            [areas, trials_info, keys] = fetchn(self,'brain_area','trial_info');
+            MI = getPerformance(self,params);
             cell_num = cellfun(@(x) cellfun(@length,x),cellfun(@(x) x.units{1,end},trials_info,'uni',0),'uni',0);
             
             if nargin>1 && ~isempty(params.mx_cell)
@@ -518,15 +532,15 @@ classdef Dec < dj.Computed
                 if isempty(params.mx_cell)
                     for idx = area_idx(:)'
                         mi = MI(idx);
-                        h(iarea) = errorPlot([cell_num{idx}(1:cell_idx(idx))],...
+                        h(iarea) = plot([cell_num{idx}(1:cell_idx(idx))],...
                             cell2mat(cellfun(@(x) double(x(:,1:cell_idx(idx))),mi,'uni',0)'),...
-                            'errorColor',params.colors(iarea,:));
+                            'color',params.colors(iarea,:),'linewidth',params.linewidth);
                     end
                 else
                     mi = MI(strcmp(areas,un_areas{iarea}));
                     h(iarea) = errorPlot([cell_num{1}(1:cell_idx(iarea))],...
                         cell2mat(cellfun(@(x) double(x(:,1:cell_idx(iarea))),mi,'uni',0)),...
-                        'errorColor',params.colors(iarea,:));
+                        'errorColor',params.colors(iarea,:),'linewidth',params.linewidth);
                 end
             end
             params.l = legend(h,un_areas);
@@ -539,6 +553,8 @@ classdef Dec < dj.Computed
             xlabel('# of Cells')
             set(params.l,'box','off','location','northwest','fontsize',params.fontsize)
             set(gca,'fontsize',params.fontsize)
+            
+            if nargout; paramsExp = params;end
         end
         
         function [perf, keys] = getPerformance(self,varargin)
@@ -546,12 +562,11 @@ classdef Dec < dj.Computed
             params.target_cell_num = [];
             params.perf = 'p';
             params.mi = 1;
+            params.autoconvert = true;
             
             params = getParams(params,varargin);
             
-            if nargin<3 || ~ischar(p);  p = 'p'; end
             [p, ti, keys] = fetchn(self, params.perf,'trial_info');
-            
             
             % remove empty classes
             p = cellfun(@(x) x(~cellfun(@isempty,x)),p,'uni',0);
@@ -559,6 +574,11 @@ classdef Dec < dj.Computed
             for ikey = 1:length(p)
                 if isempty(params.target_cell_num)
                     ncel =1:size(p{ikey}{1},3);
+                elseif params.target_cell_num==0
+                    ci = cellfun(@(x) max([find(cell2mat(cellfun(@length,x.units{1},'uni',0))>...
+                        params.target_cell_num,1,'last'),0]),ti);
+                    ncel = ci(ikey);
+                    if ncel==0;continue;end
                 else
                     ci = cellfun(@(x) max([find(cell2mat(cellfun(@length,x.units{1},'uni',0))>...
                         params.target_cell_num-1,1,'first'),0]),ti);
@@ -573,14 +593,14 @@ classdef Dec < dj.Computed
                             CM(igroup,itest) = nansum(P{igroup}(:)==itest);
                         end
                     end
-                    if nargin>1 && params.mi
+                    if params.mi
                         perf{ikey}(end+1) = self.getMI(CM);
                     else
                         perf{ikey}(end+1) = sum(diag(CM))/sum(CM(:));
                     end
                 end
             end
-            if all(cellfun(@length,perf)==1)
+            if all(cellfun(@length,perf)==1) && params.autoconvert
                 perf = cell2mat(perf);
             end
         end
@@ -593,6 +613,16 @@ classdef Dec < dj.Computed
                 params{iclass} = getParam(stimulus.MovieParams, keys, param_type, ...
                     trial_info.bins{iclass}*binsize/1000 - binsize/2/1000);
             end
+        end
+        
+        function cell_num = getCellNum(self, key)
+            if nargin<2; restr = proj(self);else restr = key;end
+            ti = fetchn(obj.Dec & restr,'trial_info');
+            cell_num = [];
+            for ikey = 1:length(ti)
+                cell_num{ikey} = cellfun(@length,ti{ikey}.units{1});
+            end
+            if ikey==1;cell_num=cell_num{1};end
         end
     end
     

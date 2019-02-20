@@ -20,7 +20,7 @@ pkurt                       : double                        # kurtosis
 lspars                      : double                        # lifetime sparseness
 lzero                       : double                        # probability of zero response
 lkurt                       : double                        # lifetime kurtosis
-tun=null                    : double                        # 
+tun=null                    : double                        #
 %}
 
 classdef SiteStats < dj.Computed
@@ -81,7 +81,7 @@ classdef SiteStats < dj.Computed
                     lspars(irep) = nanmean(sparseness(traces'));
                     lzero(irep) = nanmean(sparseness(traces','type','pzero'));
                     lkurt(irep) = nanmean(sparseness(traces','type','kurtosis'));
-                
+                    
                 end
                 
                 key.corr = nanmean(corrs);
@@ -165,38 +165,63 @@ classdef SiteStats < dj.Computed
             end
         end
         
-        function plot(self,type)
-            [data,brain_areas,movie_names, animal_ids,neurons] = fetchn(self,type,'brain_area','movie_name','animal_id','neurons');
-            un_areas = unique(brain_areas);
-            stim = cellfun(@(x) str2num(x{1}),regexp(movie_names,'\d(?=\w*v\d)','match'));
+        function plot(self,type,varargin)
             
-            is_trained = nan(size(stim));
-            for animal = fetch(mice.Mice & self,'animal_id')'
-                if count(beh.MovieClipCond & animal)
-                    tstim = cellfun(@(xx) str2num(cell2mat(xx)),regexp(unique(fetchn(beh.MovieClipCond & animal,'movie_name')),'\d(?=\w*v\d)','match'))';
-                else
-                    tstim = 0;
-                end
-                idx = animal_ids==animal.animal_id;
-                is_trained(idx) = any(stim(idx)'==tstim');
-            end
+            params.trained = false;
+            params.mask = false;
+            
+            params = getParams(params,varargin);
+            
+            [data,brain_areas,movie_names, animal_ids,neurons,keys] = fetchn(self,type,'brain_area','movie_name','animal_id','neurons');
+            un_areas = unique(brain_areas);
             R = [];
+            stim = cellfun(@(x) str2num(x{1}),regexp(movie_names,'\d(?=\w*v\d)','match'));
+            is_trained = false(size(stim));
+            if params.trained
+                for animal = fetch(mice.Mice & self,'animal_id')'
+                    tstim = 0;
+                    if count(beh.MovieClipCond & animal)
+                        tstim = cellfun(@(xx) str2num(cell2mat(xx)),regexp(unique(fetchn(beh.MovieClipCond & animal,'movie_name')),'\d(?=\w*v\d)','match'))';
+                    end
+                    idx = animal_ids==animal.animal_id;
+                    is_trained(idx) = any(stim(idx)'==tstim');
+                end
+                leg_name = {'Naive','Trained'};
+            end
             for iarea = 1:length(un_areas)
                 for itrained = 1:max(is_trained)+1
-%                    R{iarea,itrained} = data(strcmp(un_areas{iarea},brain_areas) & is_trained==itrained-1)/mean(neurons); 
-                                      R{iarea,itrained} = data(strcmp(un_areas{iarea},brain_areas) & is_trained==itrained-1); 
-
+                    R{iarea,itrained} = data(strcmp(un_areas{iarea},brain_areas) & is_trained==itrained-1);
                 end
             end
             
             % plot
             figure
-            b = barfun(R);
-            set(gca,'xtick',1:size(R,1),'xticklabel',un_areas)
-            ylabel(type)
-            if max(is_trained)>0
-                l = legend(b(:,1),{'Naive','Trained'});
-                set(l,'box','off')
+            if params.mask
+                colors = parula(30);
+                plotMask(anatomy.Masks)
+                colormap parula
+                c = colorbar;
+
+                % set min/max
+                mx = max(cellfun(@nanmean,R));
+                mn = min(cellfun(@nanmean,R));
+
+                for iarea = 1:length(un_areas)
+                    mi = nanmean(R{iarea});
+                    if isnan(mi);continue;end
+                    idx = double(uint8(floor(((mi-mn)/(mx - mn))*0.99*size(colors,1)))+1);
+                    plotMask(anatomy.Masks & ['brain_area="' un_areas{iarea} '"'],colors(idx,:),sum(~isnan(R{iarea})))
+                end           
+                set(c,'ytick',linspace(0,1,5),'yticklabel',roundall(linspace(mn,mx,5),10^-round(abs(log10(mn/10)))))
+                ylabel(c,type,'Rotation',-90,'VerticalAlignment','baseline','fontsize',10)
+            else
+                b = boxfun(R);
+                set(gca,'xtick',1:size(R,1),'xticklabel',un_areas)
+                ylabel(type)
+                if params.trained && max(is_trained)>0
+                    l = legend(b(:,1),leg_name);
+                    set(l,'box','off')
+                end
             end
         end
         
@@ -209,19 +234,19 @@ classdef SiteStats < dj.Computed
                 x = sort(traces(:,itrace),'descend');
                 y = repmat((1:size(x,1))',1,size(x,2));
                 [xData, yData] = prepareCurveData( y, x );
-
+                
                 % Set up fittype and options.
                 ft = fittype( 'power2' );
                 opts = fitoptions( 'Method', 'NonlinearLeastSquares' );
                 opts.Display = 'Off';
                 opts.StartPoint = [0 0 0];
-
+                
                 % Fit model to data.
                 [fitresult, ~] = fit( xData, yData, ft, opts );
                 v = coeffvalues(fitresult);
                 pwr(itrace) = abs(v(2));
             end
- 
+            
         end
     end
 end

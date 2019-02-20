@@ -137,7 +137,7 @@ classdef Repeats < dj.Computed
             
         end
         
-        function plot(self)
+        function plotTrained(self)
             [reliability, brain_areas, movie_names] = fetchn(obj.RepeatsUnit * anatomy.AreaMembership * stimulus.Clip & self,'r','brain_area','movie_name');
             un_areas = unique(brain_areas);
             stim = cellfun(@(x) str2num(x{1}),regexp(movie_names,'\d(?=\w*v\d)','match'));
@@ -312,6 +312,47 @@ classdef Repeats < dj.Computed
                 set(gca,'ylim',ylim)
             end
             
+        end
+        
+        function plot(self,varargin)
+            
+            params.mask = true;
+            
+            params = getParams(params,varargin);
+            
+            [reliability, brain_areas] = fetchn(obj.RepeatsUnit * anatomy.AreaMembership & self,'r','brain_area');
+            un_areas = unique(brain_areas);
+            lbl = fetch1(obj.RepeatsOpt & self,'method');
+            R = [];
+            for iarea = 1:length(un_areas)
+            	R{iarea} = reliability(strcmp(un_areas{iarea},brain_areas));
+            end
+            
+            % plot
+            figure
+            if params.mask
+                colors = parula(30);
+                plotMask(anatomy.Masks)
+                colormap parula
+                c = colorbar;
+
+                % set min/max
+                mx = max(cellfun(@nanmean,R));
+                mn = min(cellfun(@nanmean,R));
+
+                for iarea = 1:length(un_areas)
+                    mi = nanmean(R{iarea});
+                    if isnan(mi);continue;end
+                    idx = double(uint8(floor(((mi-mn)/(mx - mn))*0.99*size(colors,1)))+1);
+                    plotMask(anatomy.Masks & ['brain_area="' un_areas{iarea} '"'],colors(idx,:),sum(~isnan(R{iarea})))
+                end           
+                set(c,'ytick',linspace(0,1,5),'yticklabel',roundall(linspace(mn,mx,5),10^-round(abs(log10(mn/10)))))
+                ylabel(c,lbl,'Rotation',-90,'VerticalAlignment','baseline','fontsize',10)
+            else
+            barfun(R,'barwidth',0.9,'range',0.45)
+            set(gca,'xtick',1:size(R,1),'xticklabel',un_areas)
+            ylabel(fetch1(obj.RepeatsOpt & self,'method'))
+            end
         end
         
         function R = getReliability(self, restrict)
