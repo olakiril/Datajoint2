@@ -4,7 +4,7 @@ psp_opt                      : smallint unsigned             # event detection o
 ---
 low_pass = 100               : float  # high pass filter
 high_pass = 5                : float  # low pass filter
-min_amp = 4                  : float  # minimum allowable amplitude for alpha functions in std of samples
+min_amp = 2                  : float  # minimum allowable amplitude for alpha functions in std of samples
 max_amp= 0.0000000002        : float  # maximum allowable amplitude
 min_tau= 5                   : float  # minimum allowable tau for alpha functions (in units of samples)
 max_tau= 1000                : float  # maximum allowable tau
