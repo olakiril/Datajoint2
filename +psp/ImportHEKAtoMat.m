@@ -446,14 +446,6 @@ tr=orderfields(tr);
 return
 end
 
-
-
-
-
-
-
-
-
 %--------------------------------------------------------------------------
 function [Tree, Counter]=getStimTree(fh, Sizes, Position)
 %--------------------------------------------------------------------------
@@ -676,7 +668,6 @@ function ss=getStimSegment(fh)
 ss=orderfields(ss);
 return
 end
-
 
 %--------------------------------------------------------------------------
 function L=getSeLockInParams(fh)
