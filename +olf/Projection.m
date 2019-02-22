@@ -8,7 +8,7 @@ projection                    : int8                    # mask with signal in re
 classdef Projection < dj.Computed
     
     properties
-         keySource = (reso.FluorescenceTrace & olf.Sync)
+         keySource = reso.FluorescenceTrace & (reso.MaskClassificationType & 'type = "tufted"') & olf.Sync
     end
     
     methods(Access=protected)
@@ -26,7 +26,7 @@ classdef Projection < dj.Computed
 
             BW = backim;
             BW(px) = wt;
-
+              
             stat = regionprops(BW,'EquivDiameter');
             BW2 = imerode(BW,strel('sphere',round(stat.EquivDiameter/3)));
             BWD = convn(BW,gausswin(40)*gausswin(40)','same');

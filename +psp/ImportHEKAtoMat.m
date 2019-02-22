@@ -1,4 +1,4 @@
-function [matfilename, tree, matData, stimTree]=ImportHEKAtoMat(thisfile, targetpath)
+function [tree, matData, stimTree]=ImportHEKAtoMat(thisfile)
 % ImportHEKA imports HEKA PatchMaster and ChartMaster .DAT files
 %
 % Example:
@@ -94,10 +94,6 @@ Sizes=fread(fh, double(Levels), 'int32=>int32');
 Position=ftell(fh);
 tree=getTree(fh, Sizes, Position);
 
-
-
-
-
 % Testing getTree on pgf file
 
 if isBundled
@@ -123,12 +119,6 @@ Position=ftell(fh);
 stimTree=getStimTree(fh, Sizes, Position);
 
 
-
-
-
-
-
-
 if isBundled
     % Set offset for data
     idx=strcmp('.dat', ext);%15.08.2012 - change from strmatch
@@ -144,16 +134,6 @@ end
 fseek(fh, start, 'bof');
 
 % NOW IMPORT
-
-% Set up MAT-file giving a 'kcl' extension
-if nargin<2
-    targetpath=fileparts(thisfile);
-end
-matfilename=scCreateKCLFile(thisfile, targetpath);
-if isempty(matfilename)
-    return
-end
-
 
 % Get the group headers into a structure array
 ngroup=1;
@@ -174,7 +154,7 @@ for grp=1:numel(grp_row)
 %             scProgressBar(grp/numel(grp_row), progbar, ...
 %             sprintf('Importing Group %d. Please wait....',grp));
     % Import the data...
-    [channelnumber, matData{grp}]=LocalImportGroup(fh, thisfile, matfilename, tree, grp, grp_row, channelnumber);
+    [channelnumber, matData{grp}]=LocalImportGroup(fh, thisfile, tree, grp, grp_row, channelnumber);
 end
 
 FileSource.name='HEKA';
@@ -698,14 +678,6 @@ return
 end
 
 
-
-
-
-
-
-
-
-
 %--------------------------------------------------------------------------
 function L=getSeLockInParams(fh)
 %--------------------------------------------------------------------------
@@ -843,7 +815,7 @@ return
 end
 
 %--------------------------------------------------------------------------
-function [channelnumber,matData]=LocalImportGroup(fh, thisfile, matfilename, tree, grp, grp_row, channelnumber, progbar)
+function [channelnumber,matData]=LocalImportGroup(fh, thisfile, tree, grp, grp_row, channelnumber)
 %--------------------------------------------------------------------------
 
 
