@@ -90,7 +90,7 @@ classdef Events < dj.Computed
                 if sum(idx)>0
                     plot(offset(idx)/fs,amplitude(idx),'*r','markersize',10)
                 end
-                name = sprintf('%s Probe:%d Trial:%d',key.parent,key.probe,key.trial);
+                name = sprintf('%s Probe:%d Trial:%d',key.session,key.probe,key.trial);
                 set(gcf,'name',name)
             end
         end
@@ -127,7 +127,7 @@ classdef Events < dj.Computed
                 if sum(idx)>0
                     plot(offset(idx)/fs,amplitude(idx),'*r','markersize',10)
                 end
-                name = sprintf('%s Probe:%d',tkey.parent,tkey.probe);
+                name = sprintf('%s Probe:%d',tkey.session,tkey.probe);
                 set(gcf,'name',name)
             end
         end
