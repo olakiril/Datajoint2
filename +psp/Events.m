@@ -100,7 +100,7 @@ classdef Events < dj.Computed
 
             params = getParams(params,varargin);
             
-            keys = fetch(psp.Probes & self);
+            keys = fetch(psp.Probes * psp.EventOpt & self);
             for tkey = keys'
                 trace = fetchn(psp.Traces & tkey,'trace');
                 fs = fetch1(psp.Exp & tkey,'fs');
