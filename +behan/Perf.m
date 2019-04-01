@@ -16,7 +16,10 @@ classdef Perf < dj.Computed
         function makeTuples(self, key)
             
             % fetch session time
-            [start, stop, probe] = fetch1(beh.Trial * beh.MovieClipCond * beh.RewardCond & key,'start_time','end_time','probe');
+            [start, stop, probe] = fetch1(beh.Trial * beh.RewardCond & key,'start_time','end_time','probe');
+            
+%             % fetch session time
+%             [start, stop, probe] = fetch1(beh.Trial * beh.MovieClipCond * beh.RewardCond & key,'start_time','end_time','probe');
             
             % get licks
             resp_probe = fetchn(beh.Lick & key & sprintf('time>%d',start) & sprintf('time<%d',stop),'probe','ORDER BY time');
