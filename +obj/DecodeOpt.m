@@ -3,7 +3,7 @@
 dec_opt                     : smallint unsigned             # decoding option index
 ---
 brief="fill out"            : varchar(127)                  # short description, to be displayed in menus
-train_set                   : varchar(2000)                 # training set {groupA-1,groupA-2;groupB}{groupC;groupD-1,groupD-2}
+train_set                   : varchar(2000)                 # training set cell(groupA-1,groupA-2;groupB)cell(groupC;groupD-1,groupD-2)
 test_set                    : varchar(2000)                 # testing set
 binsize=500                 : float                         # time window in ms to compute the response
 decoder="fitclinear"        : enum('fitclinear','fitcecoc','fitcsvm') # decoding method
@@ -16,13 +16,9 @@ shuffle=1000                : mediumint                     # chance performance
 k_fold=10                   : tinyint                       # crossvalidation fold
 dec_params=null             : varchar(1024)                 # 
 neurons=null                : mediumint                     # 
-fold_selection=null         : enum('random','rottilt')      # 
+fold_selection=null         : enum('random','rotation','tilt','scale','light2_ene','y','light1_xloc','light3_yloc','x') # 
+normalize=null              : tinyint                       # 
 %}
-
+     
 classdef DecodeOpt < dj.Lookup
-	methods
-		function self = DecodeOpt(varargin)
-			self.restrict(varargin{:})
-		end
-    end
 end

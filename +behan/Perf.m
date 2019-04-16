@@ -50,6 +50,7 @@ classdef Perf < dj.Computed
             
             figure
             for imouse = 1:length(mice)
+                try
                 s(imouse) = subplot(round(sqrt(length(mice))),ceil(sqrt(length(mice))),imouse);
                 sess_keys = fetch(beh.Session & self & 'exp_type="CenterPort"' & sprintf('animal_id = %d',mice(imouse)));
                 
@@ -75,6 +76,7 @@ classdef Perf < dj.Computed
                 title(sprintf('%d',mice(imouse)))
                 xlim([1 iday])
                 grid on
+                end
             end
             linkaxes(s,'y')
         end
