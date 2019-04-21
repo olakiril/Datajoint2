@@ -311,8 +311,9 @@ classdef Dec < dj.Computed
                         cell_num = tril(true(numel(cell_idx)),0);
                         cell_num = cell_num([1 2.^(1:log2(numel(cell_idx)-1)) numel(cell_idx)],:);
                     case 'subsample2'
-                        cell_num = tril(true(numel(cell_idx)),0);
-                        cell_num = cell_num([floor(1.5.^(1:log2(numel(cell_idx)-1))) numel(cell_idx)],:);
+                        ncells = numel(cell_idx);
+                        cell_num = tril(true(ncells),0);
+                        cell_num = cell_num([floor(1.5.^(1:(log(ncells) / log(1.5)))) ncells],:);
                     case 'all'
                         cell_num = true(size(cell_idx));
                     case 'single'
