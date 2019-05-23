@@ -341,7 +341,6 @@ classdef Dec < dj.Computed
                         end
                     case 'reliable'
                         [r,keys] = fetchn(obj.RepeatsUnit & (anatomy.AreaMembership & key) & 'rep_opt = 2','r');
-                        r = cellfun(@single,r);
                         ids = [keys.unit_id];
                         un_ids = unique(ids);
                         rel = nan(length(un_ids),1);
@@ -361,7 +360,6 @@ classdef Dec < dj.Computed
                         end
                     case 'reliablev2'
                         [r,keys] = fetchn(obj.RepeatsUnit & (anatomy.AreaMembership & key) & 'rep_opt = 2','r');
-                        r = cellfun(@single,r);
                         ids = [keys.unit_id];
                         un_ids = unique(ids);
                         rel = nan(length(un_ids),1);
@@ -539,6 +537,7 @@ classdef Dec < dj.Computed
                         h(iarea) = plot([cell_num{idx}(1:cell_idx(idx))],...
                             cell2mat(cellfun(@(x) double(x(:,1:cell_idx(idx))),mi,'uni',0)'),...
                             'color',params.colors(iarea,:),'linewidth',params.linewidth);
+                        hold on
                     end
                 else
                     mi = MI(strcmp(areas,un_areas{iarea}));
@@ -547,7 +546,7 @@ classdef Dec < dj.Computed
                         'errorColor',params.colors(iarea,:),'linewidth',params.linewidth);
                 end
             end
-            params.l = legend(h,un_areas);
+            params.l = legend(h,un_areas');
             if ~params.mi
                 ylabel('Performance (% correct)')
                 plot(get(gca,'xlim'),[0.5 0.5],'-.','color',[0.5 0.5 0.5]);
