@@ -317,45 +317,67 @@ classdef Repeats < dj.Computed
         function plot(self,varargin)
             
             params.mask = true;
+            params.sites = 0;
+            params.restrict = [];
             
             params = getParams(params,varargin);
             
-            [reliability, brain_areas] = fetchn(obj.RepeatsUnit * anatomy.AreaMembership & self,'r','brain_area');
-            un_areas = unique(brain_areas);
             lbl = fetch1(obj.RepeatsOpt & self,'method');
-            R = [];
+           
+            if params.sites
+                 reliability =[]; brain_areas = [];
+                keys = fetch(obj.Repeats & (obj.RepeatsUnit * anatomy.AreaMembership & self & params.restrict));
+                for ikey = 1:length(keys)
+                    [rel, areas] =  fetchn(obj.RepeatsUnit * anatomy.AreaMembership & keys(ikey) & params.restrict,'r','brain_area');
+                    un_areas = unique(areas);
+                    for iarea = 1:length(un_areas)
+                        reliability(end+1) = nanmean(rel(strcmp(un_areas{iarea},areas)));
+                        brain_areas{end+1} = un_areas{iarea};
+                    end
+                end
+            else
+                [reliability, brain_areas] = fetchn(obj.RepeatsUnit * anatomy.AreaMembership & self & params.restrict,'r','brain_area');
+            end
+            un_areas = unique(brain_areas);
+            R = [];K = [];
             for iarea = 1:length(un_areas)
-            	R{iarea} = reliability(strcmp(un_areas{iarea},brain_areas));
+                R{iarea} = reliability(strcmp(un_areas{iarea},brain_areas));
             end
             
             % plot
-            figure
             if params.mask
+                figure
                 colors = parula(30);
                 plotMask(anatomy.Masks)
                 colormap parula
                 c = colorbar;
-
+                
                 % set min/max
                 mx = max(cellfun(@nanmean,R));
                 mn = min(cellfun(@nanmean,R));
-
+                
                 for iarea = 1:length(un_areas)
                     mi = nanmean(R{iarea});
                     if isnan(mi);continue;end
                     idx = double(uint8(floor(((mi-mn)/(mx - mn))*0.99*size(colors,1)))+1);
                     plotMask(anatomy.Masks & ['brain_area="' un_areas{iarea} '"'],colors(idx,:),sum(~isnan(R{iarea})))
-                end           
+                end
                 set(c,'ytick',linspace(0,1,5),'yticklabel',roundall(linspace(mn,mx,5),10^-round(abs(log10(mn/10)))))
                 ylabel(c,lbl,'Rotation',-90,'VerticalAlignment','baseline','fontsize',10)
             else
-            barfun(R,'barwidth',0.9,'range',0.45)
-            set(gca,'xtick',1:size(R,1),'xticklabel',un_areas)
-            ylabel(fetch1(obj.RepeatsOpt & self,'method'))
+                %             barfun(R,'barwidth',0.9,'range',0.45)
+                boxfun(R,'barwidth',0.9,'names',un_areas,'sig',1,'rawback',1)
+                set(gca,'xtick',1:size(R,1),'xticklabel',un_areas)
+                ylabel(fetch1(obj.RepeatsOpt & self,'method'))
             end
         end
         
-        function R = getReliability(self, restrict)
+        function [R, keys] = getReliability(self, restrict, varargin)
+            
+            params.sites = 0;
+            
+            params = getParams(params,varargin);
+            
             keys = fetch(self);
             
             for ikey = 1:length(keys)

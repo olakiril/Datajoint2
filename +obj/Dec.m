@@ -450,7 +450,7 @@ classdef Dec < dj.Computed
             
             % adjust colors
             if isempty(params.colormap)
-                 params.colormap = parula(30);
+                params.colormap = parula(30);
             end
             
             % get data
@@ -472,12 +472,12 @@ classdef Dec < dj.Computed
             colormap(params.colormap)
             c = colorbar;
             
-           % set min/max
+            % set min/max
             mx = max(cellfun(@nanmean,MI));
             mn = min(cellfun(@nanmean,MI));
             if ~isempty(params.mx);mx = params.mx;end
-             if ~isempty(params.mn);mn = params.mn;end
-             
+            if ~isempty(params.mn);mn = params.mn;end
+            
             for iarea = 1:length(areas)
                 mi = nanmean(MI{iarea});
                 if isnan(mi);continue;end
@@ -586,7 +586,7 @@ classdef Dec < dj.Computed
                     ci = cellfun(@(x) max([find(cell2mat(cellfun(@length,x.units{1},'uni',0))>...
                         params.target_cell_num-1,1,'first'),0]),ti);
                     ncel = ci(ikey);
-                    if ncel==0;continue;end
+                    if ncel==0; perf{ikey} = nan;continue;end
                 end
                 for icell = ncel
                     P = cellfun(@(x) x(:,:,icell),p{ikey},'uni',0);
@@ -626,6 +626,47 @@ classdef Dec < dj.Computed
                 cell_num{ikey} = cellfun(@length,ti{ikey}.units{1});
             end
             if ikey==1;cell_num=cell_num{1};end
+        end
+        
+        function plot(self,varargin)
+            
+            params.fontsize = 10;
+            params.mi = 1;
+            params.target_cell_num = [];
+            params.mx = [];
+            params.mn = [];
+            params.tinybar = true;
+            params.colormap = [];
+            params.type = 'boxfun';
+            
+            params = getParams(params,varargin);
+            
+            % adjust colors
+            if isempty(params.colormap)
+                params.colormap = parula(30);
+            end
+            
+            % get data
+            [area, keys] = fetchn(self & 'brain_area <> "unknown"',...
+                'brain_area');
+            
+            areas = unique(area);
+            MI = cell(size(areas));
+            for iarea = 1:length(areas)
+                idx = (strcmp(area,areas(iarea)));
+                p = getPerformance(self & keys(idx),params);
+                if iscell(p);p = cellfun(@nanmean,p);end
+                MI{iarea} = p;
+            end
+            
+            switch params.type
+                case 'boxfun'
+                    boxfun(MI,'barwidth',0.9,'names',areas,'sig',1,'rawback',1)
+                case 'barfun'
+                    barfun(MI,'barwidth',0.9,'names',areas,'sig',1)
+                case 'masks'
+                    plotMasks(self,params)
+            end
         end
     end
     
