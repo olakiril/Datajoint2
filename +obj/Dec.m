@@ -176,6 +176,26 @@ classdef Dec < dj.Computed
                                 test_info.bins{iclass}(test_data_idx{iclass})*abs(binsize)/1000 - abs(binsize)/2/1000);
                             [~, sort_idx] = histc(param,[-inf; quantile(param,bins-1)'; inf]);
                             test_idx{iclass} = sort_idx(:)';
+                        case 'time'
+                              % buld index
+                            for ibin = 1:bins
+                                train_idx{iclass}(1 + (ibin-1)*bin_sz      :      bin_sz*ibin) = ibin;
+                                test_idx{iclass} (1 + (ibin-1)*test_bin_sz : test_bin_sz*ibin) = ibin;
+                            end
+                            
+                            bns = test_info.bins{iclass};
+                            tls = test_info.trials{iclass};
+                            un_trl = unique(tls);
+                            for trial = un_trl(:)'
+                                idx = tls==trial;
+                                [bi,sbi] = sort(bns(idx),'ASC');
+                                dat = test_Data{iclass}(:,idx);
+                                dat = dat(:,sbi);
+                                dat(:,2:max(bi)) = dat(:,1:max(bi)-1);
+                                dat(:,1) = nan;
+                                test_Data{iclass}(:,idx) = dat(:,sbi);
+                            end
+                          
                         otherwise
                             error('Fold selection method not implemented!')
                     end
