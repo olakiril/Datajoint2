@@ -101,96 +101,6 @@ classdef Dec < dj.Computed
     end
     
     methods
-        function [Data, Stims, info, Unit_ids] = getData(self,key,bin,stim_split)
-            
-            if nargin<3 || isempty(bin)
-                bin = fetch1(obj.DecodeOpt & key, 'binsize');
-            end
-            
-            
-            % get traces
-            [Traces, caTimes, keys] = getAdjustedSpikes(fuse.ActivityTrace &...
-                (anatomy.AreaMembership & key),'soma'); % [time cells]
-            Unit_ids = [keys.unit_id];
-            
-            % get rid of nans
-            notnanidx = ~isnan(mean(Traces,2)); % faster than all
-            Traces = Traces(notnanidx,:);
-            caTimes = caTimes(notnanidx);
-            
-            % interpolate over time
-            X = @(t) interp1(caTimes-caTimes(1), Traces, t, 'linear', 'extrap');  % traces indexed by time
-            
-            % fetch stimuli without repeats
-            trial_obj = stimulus.Trial &  ...
-                ((stimulus.Clip & (stimulus.Movie & 'movie_class="object3d" OR movie_class="multiobjects"')) - ...
-                (aggr(stimulus.Clip , stimulus.Trial & key, 'count(*)->n') & 'n>1')) & key;
-            [flip_times, trial_idxs] = fetchn(...
-                trial_obj,'flip_times','trial_idx','ORDER BY trial_idx');
-            ft_sz = cellfun(@(x) size(x,2),flip_times);
-            tidx = ft_sz>=prctile(ft_sz,99);
-            trial_idxs = trial_idxs(tidx);
-            flip_times = cell2mat(flip_times(tidx));
-            Stims = unique(fetchn(stimulus.Clip & trial_obj,'movie_name'));
-            
-            % subsample traces
-            Traces = permute(X(flip_times - caTimes(1)),[2 3 1]);
-            if bin>0
-                fps = 1/median(diff(flip_times(1,:)));
-                d = max(1,round(bin/1000*fps));
-                Traces = convn(Traces,ones(d,1)/d,'same');
-                Traces = Traces(1:d:end,:,:);
-            end
-            Traces = permute(Traces,[2 1 3]); % in [cells bins trials]
-            
-            if nargin>3 && stim_split
-                Data = Traces;
-                info = [];
-            else
-                % split for unique stimuli
-                for istim = 1:length(Stims)
-                    [s_trials,s_clips,s_names] = fetchn(stimulus.Trial * stimulus.Clip & ...
-                        sprintf('movie_name = "%s"',Stims{istim}) & key, 'trial_idx','clip_number','movie_name');
-                    [tr_idx, b]= ismember(trial_idxs,s_trials);
-                    st_idx = b(b>0);
-                    dat = Traces(:,:,tr_idx);
-                    info.bins{istim} = reshape(repmat(1:size(dat,2),size(dat,3),1)',[],1);
-                    info.trials{istim} = reshape(repmat(s_trials(st_idx),1,size(dat,2))',[],1);
-                    info.clips{istim} = reshape(repmat(s_clips(st_idx),1,size(dat,2))',[],1);
-                    info.names{istim} = reshape(repmat(s_names(st_idx),1,size(dat,2))',[],1);
-                    Data{istim} = reshape(dat,size(Traces,1),[]);
-                end
-            end
-        end
-        
-        function [train_groups, test_groups] = getGroups(obj,Stims,train_set,test_set)
-            
-            if isempty(train_set) % take all pairwise combinations of stimuli
-                Stims = combnk(Stims,2);
-                for igr = 1:size(Stims,1)
-                    for istim = 1:size(Stims,2)
-                        train_groups{igr}{istim} = Stims(igr,istim);
-                    end
-                end
-                test_groups = [];
-            else
-                train_groups = splitGroups(train_set);
-                test_groups = splitGroups(test_set);
-            end
-            
-            function groups = splitGroups(set)
-                % output {group}{class}{obj}
-                group_ids = regexp(set,'([^:\{\}$]*)','match');
-                groups = [];
-                for igroup = 1:length(group_ids)
-                    classes = strsplit(group_ids{igroup},';');
-                    for iclass = 1:length(classes)
-                        groups{igroup}{iclass} = strsplit(classes{iclass},',');
-                    end
-                end
-            end
-        end
-        
         function [PP, RR, Cells, SC, DC] = decodeMulti(self,Data,test_Data, key, unit_ids, train_info, test_info)
             % performs a svm classification
             % data: {classes}[cells trials]
@@ -257,13 +167,13 @@ classdef Dec < dj.Computed
                             keys = cell2struct([num2cell(train_info.clips{iclass}(train_data_idx{iclass}),2),...
                                 train_info.names{iclass}(train_data_idx{iclass})']',{'clip_number','movie_name'},1);
                             param = getParam(stimulus.MovieParams, keys, fold_selection, ...
-                                train_info.bins{iclass}(train_data_idx{iclass})*binsize/1000 - binsize/2/1000);
+                                train_info.bins{iclass}(train_data_idx{iclass})*abs(binsize)/1000 - abs(binsize)/2/1000);
                             [~, sort_idx] = histc(param,[-inf; quantile(param,bins-1)'; inf]);
                             train_idx{iclass} = sort_idx(:)';
                             keys = cell2struct([num2cell(test_info.clips{iclass}(test_data_idx{iclass}),2),...
                                 test_info.names{iclass}(test_data_idx{iclass})']',{'clip_number','movie_name'},1);
                             param = getParam(stimulus.MovieParams, keys, fold_selection, ...
-                                test_info.bins{iclass}(test_data_idx{iclass})*binsize/1000 - binsize/2/1000);
+                                test_info.bins{iclass}(test_data_idx{iclass})*abs(binsize)/1000 - abs(binsize)/2/1000);
                             [~, sort_idx] = histc(param,[-inf; quantile(param,bins-1)'; inf]);
                             test_idx{iclass} = sort_idx(:)';
                         otherwise
@@ -435,7 +345,101 @@ classdef Dec < dj.Computed
             DC = num2cell(permute(reshape([DC{:}],length(Data),repetitions),[2 1]),2);
             
         end
+
+        function [Data, Stims, info, Unit_ids] = getData(self,key,bin,stim_split)
+            
+            if nargin<3 || isempty(bin)
+                bin = fetch1(obj.DecodeOpt & key, 'binsize');
+            end
+            
+            % get traces
+            [Traces, caTimes, keys] = getAdjustedSpikes(fuse.ActivityTrace &...
+                (anatomy.AreaMembership & key),'soma'); % [time cells]
+            Unit_ids = [keys.unit_id];
+            
+            % get rid of nans
+            notnanidx = ~isnan(mean(Traces,2)); % faster than all
+            Traces = Traces(notnanidx,:);
+            caTimes = caTimes(notnanidx);
+            if bin<0
+                caTimes = caTimes - bin/1000;
+                bin = abs(bin);
+            end
+            
+            % interpolate over time
+            X = @(t) interp1(caTimes-caTimes(1), Traces, t, 'linear', 'extrap');  % traces indexed by time
+            
+            % fetch stimuli without repeats
+            trial_obj = stimulus.Trial &  ...
+                ((stimulus.Clip & (stimulus.Movie & 'movie_class="object3d" OR movie_class="multiobjects"')) - ...
+                (aggr(stimulus.Clip , stimulus.Trial & key, 'count(*)->n') & 'n>1')) & key;
+            [flip_times, trial_idxs] = fetchn(...
+                trial_obj,'flip_times','trial_idx','ORDER BY trial_idx');
+            ft_sz = cellfun(@(x) size(x,2),flip_times);
+            tidx = ft_sz>=prctile(ft_sz,99);
+            trial_idxs = trial_idxs(tidx);
+            flip_times = cell2mat(flip_times(tidx));
+            Stims = unique(fetchn(stimulus.Clip & trial_obj,'movie_name'));
+            
+            % subsample traces
+            Traces = permute(X(flip_times - caTimes(1)),[2 3 1]);
+            if abs(bin)>0
+                fps = 1/median(diff(flip_times(1,:)));
+                d = max(1,round(abs(bin)/1000*fps));
+                Traces = convn(Traces,ones(d,1)/d,'same');
+                Traces = Traces(1:d:end,:,:);
+            end
+
+            Traces = permute(Traces,[2 1 3]); % in [cells bins trials]
+            
+            if nargin>3 && stim_split
+                Data = Traces;
+                info = [];
+            else
+                % split for unique stimuli
+                for istim = 1:length(Stims)
+                    [s_trials,s_clips,s_names] = fetchn(stimulus.Trial * stimulus.Clip & ...
+                        sprintf('movie_name = "%s"',Stims{istim}) & key, 'trial_idx','clip_number','movie_name');
+                    [tr_idx, b]= ismember(trial_idxs,s_trials);
+                    st_idx = b(b>0);
+                    dat = Traces(:,:,tr_idx);
+                    info.bins{istim} = reshape(repmat(1:size(dat,2),size(dat,3),1)',[],1);
+                    info.trials{istim} = reshape(repmat(s_trials(st_idx),1,size(dat,2))',[],1);
+                    info.clips{istim} = reshape(repmat(s_clips(st_idx),1,size(dat,2))',[],1);
+                    info.names{istim} = reshape(repmat(s_names(st_idx),1,size(dat,2))',[],1);
+                    Data{istim} = reshape(dat,size(Traces,1),[]);
+                end
+            end
+        end
         
+        function [train_groups, test_groups] = getGroups(obj,Stims,train_set,test_set)
+            
+            if isempty(train_set) % take all pairwise combinations of stimuli
+                Stims = combnk(Stims,2);
+                for igr = 1:size(Stims,1)
+                    for istim = 1:size(Stims,2)
+                        train_groups{igr}{istim} = Stims(igr,istim);
+                    end
+                end
+                test_groups = [];
+            else
+                train_groups = splitGroups(train_set);
+                test_groups = splitGroups(test_set);
+            end
+            
+            function groups = splitGroups(set)
+                % output {group}{class}{obj}
+                group_ids = regexp(set,'([^:\{\}$]*)','match');
+                groups = [];
+                for igroup = 1:length(group_ids)
+                    classes = strsplit(group_ids{igroup},';');
+                    for iclass = 1:length(classes)
+                        groups{igroup}{iclass} = strsplit(classes{iclass},',');
+                    end
+                end
+            end
+        end
+               
         function plotMasks(self,varargin)
             
             params.fontsize = 10;
@@ -445,12 +449,15 @@ classdef Dec < dj.Computed
             params.mn = [];
             params.tinybar = true;
             params.colormap = [];
+            params.sitenum = true;
             
             params = getParams(params,varargin);
             
             % adjust colors
             if isempty(params.colormap)
-                params.colormap = parula(30);
+%                 params.colormap = parula(30);
+                colors = cbrewer('seq','YlPuBl',150);
+                params.colormap = colors(1:end-40,:);
             end
             
             % get data
@@ -482,7 +489,8 @@ classdef Dec < dj.Computed
                 mi = nanmean(MI{iarea});
                 if isnan(mi);continue;end
                 idx = double(uint8(floor(((mi-mn)/(mx - mn))*0.99*size(params.colormap,1)))+1);
-                plotMask(anatomy.Masks & ['brain_area="' areas{iarea} '"'],params.colormap(idx,:),sum(~isnan(MI{iarea})))
+                if params.sitenum; n = sum(~isnan(MI{iarea}));else n = [];end
+                plotMask(anatomy.Masks & ['brain_area="' areas{iarea} '"'],params.colormap(idx,:),n)
             end
             
             if params.tinybar; ml = 2;else ml =5;end
@@ -504,6 +512,9 @@ classdef Dec < dj.Computed
             params.figure = [];
             params.fontsize = 10;
             params.linewidth = 2;
+            params.colors  = [];
+            params.areas = [];
+            params.errors = true;
             
             params = getParams(params,varargin);
             
@@ -517,7 +528,7 @@ classdef Dec < dj.Computed
                 areas = areas(idx);
                 MI = MI(idx);
                 cell_num = cell_num(idx);
-                cell_idx = repmat(find(cell_num{1}==params.mx_cell),length(MI),1);
+                cell_idx = repmat(find(cell_num{1}>=params.mx_cell,1,'first'),length(MI),1);
             else
                 cell_idx = cellfun(@(x) length(x), cell_num);
             end
@@ -526,12 +537,20 @@ classdef Dec < dj.Computed
                 figure
             end
             
-            un_areas = unique(areas);
-            params.colors = hsv(length(un_areas));
+            if isempty(params.areas)
+                un_areas = unique(areas);
+            else
+                un_areas = params.areas;
+            end
+            
+            if isempty(params.colors)
+                params.colors = hsv(length(un_areas));
+            end
+            
             h = [];
             for iarea = 1:length(un_areas)
                 area_idx = find(strcmp(areas,un_areas{iarea}));
-                if isempty(params.mx_cell)
+                if isempty(params.mx_cell) 
                     for idx = area_idx(:)'
                         mi = MI(idx);
                         h(iarea) = plot([cell_num{idx}(1:cell_idx(idx))],...
@@ -539,6 +558,12 @@ classdef Dec < dj.Computed
                             'color',params.colors(iarea,:),'linewidth',params.linewidth);
                         hold on
                     end
+                elseif ~params.errors
+                    mi = MI(strcmp(areas,un_areas{iarea}));
+                    h(iarea) = plot([cell_num{1}(1:cell_idx(iarea))],...
+                        nanmean(cell2mat(cellfun(@(x) double(x(:,1:cell_idx(iarea))),mi,'uni',0))),...
+                        'color',params.colors(iarea,:),'linewidth',params.linewidth);
+                    hold on
                 else
                     mi = MI(strcmp(areas,un_areas{iarea}));
                     h(iarea) = errorPlot([cell_num{1}(1:cell_idx(iarea))],...
@@ -614,7 +639,7 @@ classdef Dec < dj.Computed
                 keys = cell2struct([num2cell(trial_info.clips{iclass},2),...
                     trial_info.names{iclass}']',{'clip_number','movie_name'},1);
                 params{iclass} = getParam(stimulus.MovieParams, keys, param_type, ...
-                    trial_info.bins{iclass}*binsize/1000 - binsize/2/1000);
+                    trial_info.bins{iclass}*abs(binsize)/1000 - abs(binsize)/2/1000);
             end
         end
         
