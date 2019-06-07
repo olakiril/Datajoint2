@@ -191,8 +191,8 @@ classdef Dec < dj.Computed
                                 [bi,sbi] = sort(bns(idx),'ASC');
                                 dat = test_Data{iclass}(:,idx);
                                 dat = dat(:,sbi);
-                                dat(:,2:max(bi)) = dat(:,1:max(bi)-1);
-                                dat(:,1) = nan;
+                                dat(:,3:max(bi)) = dat(:,1:max(bi)-2);
+                                dat(:,1:2) = nan;
                                 test_Data{iclass}(:,idx) = dat(:,sbi);
                             end
                           
