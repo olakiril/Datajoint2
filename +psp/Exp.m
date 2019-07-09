@@ -10,6 +10,7 @@ probes                       : int                 # probe number
 path                         : varchar(1024)       # file path
 filename                     : varchar(255)        # file name
 import_ts=CURRENT_TIMESTAMP  : timestamp           # don't edit
+notes                        : varchar(1024)       # notes
 %}       
             
             
@@ -42,6 +43,7 @@ classdef Exp < dj.Manual
                 key.trial_duration = size(Data{1},1)/key.fs;
                 key.trials = size(Data{1},2);
                 key.probes = nprobes;
+                fprintf('Importing section %d \n', isection)
                 insert(psp.Exp,key)
 
                 for iprobe = 1:nprobes

@@ -259,7 +259,8 @@ classdef Dec < dj.Computed
                         my = mean(y);
                         [x,y, keys] = getDegrees(tune.DotRFMap & (fuse.ScanDone & key) & ...
                             'p_value<0.05' & (anatomy.AreaMembership & key),1);
-                        idx = (mx-10)<x & x<(mx+10) & (my-10)<y & y<(my+10);
+%                         idx = (mx-10)<x & x<(mx+10) & (my-10)<y & y<(my+10);
+                        idx = pdist2([x(:) y(:)],[mx my]) < 10;
                         sel_units = [keys(idx).unit_id];
                         [~,unit_idx] = intersect(unit_ids(cell_idx),sel_units);
                         %indexes = [1 10:10:99 100:100:length(unit_idx) length(unit_idx)];
@@ -658,6 +659,8 @@ classdef Dec < dj.Computed
             for iclass = 1:length(trial_info.clips)
                 keys = cell2struct([num2cell(trial_info.clips{iclass},2),...
                     trial_info.names{iclass}']',{'clip_number','movie_name'},1);
+                [keys.animal_id] = deal(fetch1(self,'animal_id'));
+                 [keys.session] = deal(fetch1(self,'session'));
                 params{iclass} = getParam(stimulus.MovieParams, keys, param_type, ...
                     trial_info.bins{iclass}*abs(binsize)/1000 - abs(binsize)/2/1000);
             end

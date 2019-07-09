@@ -53,7 +53,7 @@ classdef AodScan < dj.Relvar
                 dataType = 'Functional';
             end
             
-            br = aodReader(getFileName(self), dataType);
+            br = e(getFileName(self), dataType);
         end
         
         function time = getHardwareStartTime(self)

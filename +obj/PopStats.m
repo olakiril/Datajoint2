@@ -46,7 +46,9 @@ classdef PopStats < dj.Computed
                     dist_in(irep) = nanmean(pdist(traces'));
                     group = ObjID==ObjID(iStim);
                     traces_trans = cell2mat(cellfun(@(x) x(neuro_idx,:),Traces(~group),'uni',0));
-                    dist_trans(irep) = nanmean(reshape(pdist2(traces',traces_trans(:,randperm(rseed,size(traces_trans,2),size(traces,2)))'),[],1));
+%                     dist_trans(irep) = nanmean(reshape(pdist2(traces',traces_trans(:,randperm(rseed,size(traces_trans,2),size(traces,2)))'),[],1));
+                    dist_trans(irep) = mean(pdist2(traces',mean(traces_trans,2)'));
+
                     group(iStim) = false;
                     if any(group)
                         traces_cis = cell2mat(cellfun(@(x) x(neuro_idx,:),Traces(group),'uni',0));

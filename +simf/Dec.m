@@ -306,6 +306,7 @@ classdef Dec < dj.Computed
             params.perf = 'p';
             params.mi = 1;
             params.autoconvert = true;
+            params.reps = 0;
             
             params = getParams(params,varargin);
             
@@ -329,18 +330,40 @@ classdef Dec < dj.Computed
                     if ncel==0; perf{ikey} = nan;continue;end
                 end
                 for icell = ncel
-                    P = cellfun(@(x) x(:,:,icell),p{ikey},'uni',0);
-                    CM = nan(length(P));
-                    for igroup = 1:length(P)
-                        for itest = 1:length(P)
-                            CM(igroup,itest) = nansum(P{igroup}(:)==itest);
+                    
+                    if ~params.reps
+                        P = cellfun(@(x) x(:,:,icell),p{ikey},'uni',0);
+                        CM = nan(length(P));
+                        for igroup = 1:length(P)
+                            for itest = 1:length(P)
+                                
+                                CM(igroup,itest) = nansum(P{igroup}(:)==itest);
+                            end
+                        end
+                        if params.mi
+                            perf{ikey}(end+1) = self.getMI(CM);
+                        else
+                            perf{ikey}(end+1) = sum(diag(CM))/sum(CM(:));
+                        end
+                        
+                    else
+                        for irep = 1:size(p{1}{1},1)
+                            P = cellfun(@(x) x(irep,:,icell),p{ikey},'uni',0);
+                            CM = nan(length(P));
+                            for igroup = 1:length(P)
+                                for itest = 1:length(P)
+                                    
+                                    CM(igroup,itest) = nansum(P{igroup}(:)==itest);
+                                end
+                            end
+                            if params.mi
+                                perf{ikey}(end+1) = self.getMI(CM);
+                            else
+                                perf{ikey}(end+1) = sum(diag(CM))/sum(CM(:));
+                            end
                         end
                     end
-                    if params.mi
-                        perf{ikey}(end+1) = self.getMI(CM);
-                    else
-                        perf{ikey}(end+1) = sum(diag(CM))/sum(CM(:));
-                    end
+                    
                 end
             end
             if all(cellfun(@length,perf)==1) && params.autoconvert
@@ -351,7 +374,7 @@ classdef Dec < dj.Computed
     end
     
     methods (Static)
-        function mi = getMI(R)
+        function mi = getMI(CM)
             CM = CM+eps;
             p = CM/sum(CM(:));
             pi = sum(CM,2)/sum(CM(:));
