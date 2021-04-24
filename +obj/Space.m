@@ -71,6 +71,42 @@ classdef Space < dj.Computed
     end
     
     methods
+        
+        function [Stims, info] = getInfo(self,key,norepeats)
+                        
+            if nargin<3|| isempty(norepeats)
+                norepeats = true;
+            end
+            % fetch stimuli without repeats
+            if norepeats
+                trial_obj = stimulus.Trial &  ...
+                    ((stimulus.Clip & (stimulus.Movie & 'movie_class="object3d" OR movie_class="multiobjects"')) - ...
+                    (aggr(stimulus.Clip , stimulus.Trial & key, 'count(*)->n') & 'n>1')) & key;
+            else
+                trial_obj = stimulus.Trial &  ...
+                    ((stimulus.Clip & (stimulus.Movie & 'movie_class="object3d" OR movie_class="multiobjects"'))) & key;
+            end
+            [flip_times, trial_idxs] = fetchn(...
+                trial_obj,'flip_times','trial_idx','ORDER BY trial_idx');
+            ft_sz = cellfun(@(x) size(x,2),flip_times);
+            tidx = ft_sz>=prctile(ft_sz,99);
+            trial_idxs = trial_idxs(tidx);
+            Stims = unique(fetchn(stimulus.Clip & trial_obj,'movie_name'));
+            
+            % split for unique stimuli
+            for istim = 1:length(Stims)
+                [s_trials,s_clips,s_names] = fetchn(stimulus.Trial * stimulus.Clip & ...
+                    sprintf('movie_name = "%s"',Stims{istim}) & key, 'trial_idx','clip_number','movie_name');
+                [tr_idx, b]= ismember(trial_idxs,s_trials);
+                st_idx = b(b>0);
+                ti = fetch1(obj.Dec & key,'trial_info');
+                info.bins{istim} = reshape(repmat(1:max(ti.bins{1}),sum(tr_idx),1)',[],1);
+                info.trials{istim} = reshape(repmat(s_trials(st_idx),1,max(ti.bins{1}))',[],1);
+                info.clips{istim} = reshape(repmat(s_clips(st_idx),1,max(ti.bins{1}))',[],1);
+                info.names{istim} = reshape(repmat(s_names(st_idx),1,max(ti.bins{1}))',[],1);
+            end
+        end
+        
         function cell_num = getCellNum(self, key)
             if nargin<2; restr = proj(self);else restr = key;end
             ti = fetchn(obj.Dec & restr,'trial_info');
