@@ -32,7 +32,7 @@ classdef Dec < dj.Computed
             [train_set,test_set] = fetch1(obj.DecodeOpt & key,'train_set','test_set');
             
             % get Data
-            [Traces, Stims, StimInfo, Unit_ids] = getData(self,key); % [Cells, Obj, Trials]
+            [Traces, Stims, StimInfo, Unit_ids, BehTraces] = getData(self,key); % [Cells, Obj, Trials]
             [train_groups,test_groups] = getGroups(self,Stims,train_set,test_set);
             if ~isempty(test_groups)
                 train_sz = cell2mat(cellfun(@size,train_groups,'uni',0));
@@ -47,6 +47,7 @@ classdef Dec < dj.Computed
                 
                 % assign training & testing data and the stimulus information for each
                 train_data = [];test_data = [];class_idx = true(length(train_groups{iGroup}),1);
+                beh_data = [];
                 for iClass = 1:length(train_groups{iGroup})
                     
                     % Training Data
@@ -56,6 +57,7 @@ classdef Dec < dj.Computed
                         repmat(Stims,1,size(tgroup,2)))',1);
                     if all(stim_idx==0);class_idx(iClass) = false;continue;end
                     train_data{iClass} = cell2mat(Traces(stim_idx));
+                    beh_data{iClass} = cell2mat(BehTraces(stim_idx));
                     train_info.bins{iGroup,iClass} = cell2mat(reshape(StimInfo.bins(stim_idx),[],1));
                     train_info.trials{iGroup,iClass} = cell2mat(reshape(StimInfo.trials(stim_idx),[],1));
                     train_info.clips{iGroup,iClass} = cell2mat(reshape(StimInfo.clips(stim_idx),[],1));
@@ -82,7 +84,7 @@ classdef Dec < dj.Computed
                 % run the decoding
                 [P(iGroup,class_idx), P_shfl(iGroup,class_idx), unit_idx(iGroup,:), score(iGroup,class_idx), classifier(iGroup,:)]= ...
                     decodeMulti(self, train_data, test_data, key, Unit_ids,...
-                    structfun(@(x) x(iGroup,:),train_info,'uni',0),structfun(@(x) x(iGroup,:),test_info,'uni',0));
+                    structfun(@(x) x(iGroup,:),train_info,'uni',0),structfun(@(x) x(iGroup,:),test_info,'uni',0), beh_data);
             end
             
             % find unit ids from randomization indexes
@@ -101,7 +103,7 @@ classdef Dec < dj.Computed
     end
     
     methods
-        function [PP, RR, Cells, SC, DC] = decodeMulti(self,Data,test_Data, key, unit_ids, train_info, test_info)
+        function [PP, RR, Cells, SC, DC] = decodeMulti(self,Data,test_Data, key, unit_ids, train_info, test_info, beh_Data)
             % performs a svm classification
             % data: {classes}[cells trials]
             % output: {classes}[reps trials]
@@ -153,6 +155,16 @@ classdef Dec < dj.Computed
                     case 'sequential'
                         train_data_idx = cellfun(@(x) 1:size(x,2),Data,'uni',0);% create bin index
                         test_data_idx = cellfun(@(x)  1:size(x,2),test_Data,'uni',0);
+                    case 'active'
+                        thr = prctile(cell2mat(cellfun(@(x) x(1,:),beh_Data,'uni',0)),80);
+                        idx = cellfun(@(x) x>thr, beh_Data,'uni',0);
+                        train_data_idx = cellfun(@(x) randperm(rseed,size(x,2)), idx,'uni',0);
+                        test_data_idx = train_data_idx;
+                    case 'quiet'
+                        thr = prctile(cell2mat(cellfun(@(x) x(1,:),beh_Data,'uni',0)),20);
+                        idx = cellfun(@(x) x<thr, beh_Data,'uni',0);
+                        train_data_idx = cellfun(@(x) randperm(rseed,size(x,2)), idx,'uni',0);
+                        test_data_idx = train_data_idx;
                 end
                 
                 % equalize by undersampling shorter class
@@ -205,7 +217,6 @@ classdef Dec < dj.Computed
                                 dat(:,1:2) = nan;
                                 test_Data{iclass}(:,idx) = dat(:,sbi);
                             end
-                            
                         otherwise
                             error('Fold selection method not implemented!')
                     end
@@ -377,7 +388,7 @@ classdef Dec < dj.Computed
             
         end
         
-        function [Data, Stims, info, Unit_ids] = getData(self,key,bin,stim_split,norepeats)
+        function [Data, Stims, info, Unit_ids, BehData] = getData(self,key,bin,stim_split,norepeats)
             
             if nargin<5 || isempty(norepeats)
                 norepeats = true;
@@ -388,10 +399,12 @@ classdef Dec < dj.Computed
             end
             
             % get traces
+            tic
             [Traces, caTimes, keys] = getAdjustedSpikes(fuse.ActivityTrace &...
                 (anatomy.AreaMembership & key),'soma'); % [time cells]
+            toc
             Unit_ids = [keys.unit_id];
-            
+            tic
             % get rid of nans
             notnanidx = ~isnan(mean(Traces,2)); % faster than all
             Traces = Traces(notnanidx,:);
@@ -402,8 +415,36 @@ classdef Dec < dj.Computed
             end
             
             % interpolate over time
-            X = @(t) interp1(caTimes-caTimes(1), Traces, t, 'linear', 'extrap');  % traces indexed by time
+            X = @(t) interp1(caTimes, Traces, t, 'linear', 'extrap');  % traces indexed by time
             
+            % get behavioral data
+            BehTraces = @(t) []; 
+            if exists(stimulus.BehaviorSync & key)
+                ft = fetch1(stimulus.BehaviorSync & key,'frame_times');
+                sft = fetch1(stimulus.Sync & key,'frame_times');
+                if exists(treadmill.Treadmill & key)
+                    [tt,tv] = fetch1(treadmill.Treadmill & key,'treadmill_time','treadmill_vel');
+                    tv(isnan(tv)) = interp1(find(~isnan(tv)),tv(~isnan(tv)),find(isnan(tv)));
+                    idx = ~isnan(tv) & ~isnan(tt);
+                    vel = abs(interp1(tt(idx),tv(idx),ft));
+                    BehTraces = @(t) abs(interp1(sft,vel,t, 'linear', 'extrap'));
+                else
+                    BehTraces = @(t) nan(size(t));
+                end
+                if  exists(eye.FittedPupilEllipse & key)
+                    et = fetch1(eye.Eye & key,'eye_time');
+                    [mj_r,mn_r] = fetchn(eye.FittedPupilEllipse & key,'major_radius','minor_radius');
+                    ev = nanmean([mj_r,mn_r],2);
+                    ev = diff(conv(ev,gausswin(100),'same')); et = et(2:end);
+                    ev(isnan(ev)) = interp1(find(~isnan(ev)),ev(~isnan(ev)),find(isnan(ev)));
+                    idx = ~isnan(ev) & ~isnan(et);
+                    pup = abs(interp1(et(idx),ev(idx),ft));
+                    BehTraces = @(t) [BehTraces(t) interp1(sft,pup,t, 'linear', 'extrap')];
+                else
+                    BehTraces = @(t) [BehTraces(t) nan(size(t))];
+                end
+            end
+   
             % fetch stimuli without repeats
             if norepeats
                 trial_obj = stimulus.Trial &  ...
@@ -418,22 +459,27 @@ classdef Dec < dj.Computed
             ft_sz = cellfun(@(x) size(x,2),flip_times);
             tidx = ft_sz>=prctile(ft_sz,99);
             trial_idxs = trial_idxs(tidx);
-            flip_times = cell2mat(flip_times(tidx));
+            flip_times = permute(cell2mat(flip_times(tidx)),[2 3 1]); % in [bins 1 trials]
             Stims = unique(fetchn(stimulus.Clip & trial_obj,'movie_name'));
             
             % subsample traces
-            Traces = permute(X(flip_times - caTimes(1)),[2 3 1]);
+            Traces = X(flip_times); % in [bins cells trials]
+            BehTraces = B(flip_times);
             if abs(bin)>0
                 fps = 1/median(diff(flip_times(1,:)));
                 d = max(1,round(abs(bin)/1000*fps));
                 Traces = convn(Traces,ones(d,1)/d,'same');
-                Traces = Traces(1:d:end,:,:);
+                Traces = Traces(1:d:end,:,:); % in [bins cells trials]
+                BehTraces = convn(BehTraces,ones(d,1)/d,'same');
+                BehTraces = BehTraces(1:d:end,:,:); % in [bins beh trials]
             end
             
             Traces = permute(Traces,[2 1 3]); % in [cells bins trials]
-            
+            BehTraces = permute(BehTraces,[2 1 3]); % in [beh bins trials]
+            toc
             if nargin>3 && ~isempty(stim_split) && stim_split
                 Data = Traces;
+                BehData = BehTraces;
                 info = [];
             else
                 % split for unique stimuli
@@ -443,11 +489,13 @@ classdef Dec < dj.Computed
                     [tr_idx, b]= ismember(trial_idxs,s_trials);
                     st_idx = b(b>0);
                     dat = Traces(:,:,tr_idx);
+                    behdat = BehTraces(:,:,tr_idx);
                     info.bins{istim} = reshape(repmat(1:size(dat,2),size(dat,3),1)',[],1);
                     info.trials{istim} = reshape(repmat(s_trials(st_idx),1,size(dat,2))',[],1);
                     info.clips{istim} = reshape(repmat(s_clips(st_idx),1,size(dat,2))',[],1);
                     info.names{istim} = reshape(repmat(s_names(st_idx),1,size(dat,2))',[],1);
                     Data{istim} = reshape(dat,size(Traces,1),[]);
+                    BehData{istim} = reshape(behdat,size(BehTraces,1),[]);
                 end
             end
         end
@@ -630,17 +678,25 @@ classdef Dec < dj.Computed
             params.target_cell_num = [];
             params.perf = 'p';
             params.mi = 1;
+            params.data = [];
             params.autoconvert = true;
+            params.reps = false;
             
             params = getParams(params,varargin);
             
             [p, ti, keys] = fetchn(self, params.perf,'trial_info');
+            if ~isempty(params.data)
+                p = {params.data};
+            end
             
             % remove empty classes
             p = cellfun(@(x) x(:,any(~cellfun(@isempty,x),1)),p,'uni',0);
             perf = cell(length(p),1);
             for ikey = 1:length(p)
-                if isempty(params.target_cell_num)
+                if params.reps
+                    p{ikey} = cellfun(@(x) permute(x(:,:,size(p{ikey}{1},3)),[3 2 1]),p{ikey},'uni',0);
+                    ncel =1:size(p{ikey}{1},3);
+                elseif isempty(params.target_cell_num)
                     ncel =1:size(p{ikey}{1},3);
                 elseif params.target_cell_num==0
                     ci = cellfun(@(x) max([find(cell2mat(cellfun(@length,x.units{1},'uni',0))>...
@@ -677,13 +733,13 @@ classdef Dec < dj.Computed
         
         function confusion_matrix = getCM(self,varargin)
             
-              params.target_cell_num = [];
+            params.target_cell_num = [];
             params.perf = 'p';
             params.mi = 1;
             params.autoconvert = true;
             
             params = getParams(params,varargin);
-           
+            
             [p, ti] = fetchn(self, params.perf,'trial_info');
             
             % remove empty classes
@@ -776,6 +832,75 @@ classdef Dec < dj.Computed
                     barfun(MI,'barwidth',0.9,'names',areas,'sig',1)
                 case 'masks'
                     plotMasks(self,params)
+            end
+        end
+        
+        function plotScan(self)
+            try
+                unit_ids = [];
+                p = [];
+                for key = fetch(self)'
+                    ti = fetch1(self & key,'trial_info');
+                    unit_ids{end+1} = cell2mat(ti.units{1});
+                    p{end+1} = cell2mat(getPerformance(self & key));
+                end
+                unit_ids = cell2mat(unit_ids);
+                p = cell2mat(p);
+                
+                
+                %[masks,weights,fields,unit_ids] = fetchn(meso.SegmentationMask * meso.ScanSetUnit & key,'pixels','weights','field','unit_id');
+                p(p<prctile(p,1)) = prctile(p,1);
+                p(p>prctile(p,99)) = prctile(p,99);
+                norm_p = ceil(normalize(abs(p))*99)+1;
+                keys = fetch(meso.Segmentation & self);
+                iplot =0;
+                figure
+                
+                for k = keys'
+                    iplot =iplot+1;
+                    subplot(1,length(keys),iplot)
+                    
+                    [masks ,un_ids,weights,tkeys]= fetchn(meso.SegmentationMask * meso.ScanSetUnit & k,'pixels','unit_id','weights');
+                    images = fetchn(meso.SummaryImagesAverage & k, 'average_image', 'ORDER BY channel');
+                    mask = zeros(size(images{1}));
+                    for imask = 1:length(masks)
+                        %mask(masks{imask}) = tkeys(imask).mask_id;
+                        idx = norm_p(unit_ids==un_ids(imask));
+                        if isempty(idx);continue;end
+                        mask(masks{imask}) = norm_p(idx);
+                        
+                    end
+                    [w,mw] = fetch1(meso.ScanInfoField & k,'px_width','um_width');
+                    
+                    % plot masks
+                    %                 un = unique(mask(:));
+                    %                 nmask = zeros(size(mask));
+                    %                 for i = 1:length(un)
+                    %                     idx = norm_p(unit_ids==un_ids(i));
+                    %                     if isempty(idx);continue;end
+                    %                     nmask(mask==un(i)) = norm_p(idx);
+                    %                 end
+                    nmask = mask+1;
+                    colors = [0,0,0;[linspace(0,1,100)' ones(100,1)*0.8 ones(100,1)*0.8]];
+                    im = images{1};
+                    ul = prctile(im(:),99);
+                    im(im>ul) = ul;
+                    
+                    map = zeros(size(im,1),size(im,2),3);
+                    map(:,:,2) = reshape(colors(nmask,1),size(map(:,:,1)));
+                    map(:,:,1) = 0;
+                    map(:,:,3) = normalize(im);
+                    
+                    image(hsv2rgb(map))
+                    axis image
+                    axis off
+                    hold on
+                    plot(size(map,2)*0.1+[0 w/mw*50],size(map,1)*0.9*[1 1],'-w','LineWidth',2)
+                    text(mean(size(map,2)*0.1+[0 w/mw*50]),size(map,1)*0.9,'50um','Color',[1 1 1],'FontSize',12,'VerticalAlignment','top')
+                    shg
+                    set(gcf,'name',sprintf('Masks %d %d %d',k.animal_id,k.session,k.scan_idx))
+                end
+                
             end
         end
     end
