@@ -157,14 +157,16 @@ classdef Dec < dj.Computed
                         test_data_idx = cellfun(@(x)  1:size(x,2),test_Data,'uni',0);
                     case 'active'
                         thr = prctile(cell2mat(cellfun(@(x) x(1,:),beh_Data,'uni',0)),80);
-                        idx = cellfun(@(x) x>thr, beh_Data,'uni',0);
-                        train_data_idx = cellfun(@(x) randperm(rseed,size(x,2)), idx,'uni',0);
+                        idx = cellfun(@(x) find(x(1,:)>thr), beh_Data,'uni',0);
+                        train_data_idx = cellfun(@(x) x(randperm(rseed,size(x,2))), idx,'uni',0);
                         test_data_idx = train_data_idx;
+                        mnz = min(cellfun(@length,train_data_idx));
                     case 'quiet'
                         thr = prctile(cell2mat(cellfun(@(x) x(1,:),beh_Data,'uni',0)),20);
-                        idx = cellfun(@(x) x<thr, beh_Data,'uni',0);
-                        train_data_idx = cellfun(@(x) randperm(rseed,size(x,2)), idx,'uni',0);
+                        idx = cellfun(@(x) find(x(1,:)<thr), beh_Data,'uni',0);
+                        train_data_idx = cellfun(@(x) x(randperm(rseed,size(x,2))), idx,'uni',0);
                         test_data_idx = train_data_idx;
+                        mnz = min(cellfun(@length,train_data_idx));
                 end
                 
                 % equalize by undersampling shorter class
@@ -418,7 +420,7 @@ classdef Dec < dj.Computed
             X = @(t) interp1(caTimes, Traces, t, 'linear', 'extrap');  % traces indexed by time
             
             % get behavioral data
-            BehTraces = @(t) []; 
+            B = @(t) []; 
             if exists(stimulus.BehaviorSync & key)
                 ft = fetch1(stimulus.BehaviorSync & key,'frame_times');
                 sft = fetch1(stimulus.Sync & key,'frame_times');
@@ -427,9 +429,9 @@ classdef Dec < dj.Computed
                     tv(isnan(tv)) = interp1(find(~isnan(tv)),tv(~isnan(tv)),find(isnan(tv)));
                     idx = ~isnan(tv) & ~isnan(tt);
                     vel = abs(interp1(tt(idx),tv(idx),ft));
-                    BehTraces = @(t) abs(interp1(sft,vel,t, 'linear', 'extrap'));
+                    B = @(t) abs(interp1(sft,vel,t, 'linear', 'extrap'));
                 else
-                    BehTraces = @(t) nan(size(t));
+                    B = @(t) nan(size(t));
                 end
                 if  exists(eye.FittedPupilEllipse & key)
                     et = fetch1(eye.Eye & key,'eye_time');
@@ -439,9 +441,9 @@ classdef Dec < dj.Computed
                     ev(isnan(ev)) = interp1(find(~isnan(ev)),ev(~isnan(ev)),find(isnan(ev)));
                     idx = ~isnan(ev) & ~isnan(et);
                     pup = abs(interp1(et(idx),ev(idx),ft));
-                    BehTraces = @(t) [BehTraces(t) interp1(sft,pup,t, 'linear', 'extrap')];
+                    B = @(t) [B(t) interp1(sft,pup,t, 'linear', 'extrap')];
                 else
-                    BehTraces = @(t) [BehTraces(t) nan(size(t))];
+                    B = @(t) [B(t) nan(size(t))];
                 end
             end
    
@@ -463,7 +465,7 @@ classdef Dec < dj.Computed
             Stims = unique(fetchn(stimulus.Clip & trial_obj,'movie_name'));
             
             % subsample traces
-            Traces = X(flip_times); % in [bins cells trials]
+            Traces = permute(X(flip_times),[1 4 3 2]); % in [bins cells trials]
             BehTraces = B(flip_times);
             if abs(bin)>0
                 fps = 1/median(diff(flip_times(1,:)));
@@ -489,7 +491,9 @@ classdef Dec < dj.Computed
                     [tr_idx, b]= ismember(trial_idxs,s_trials);
                     st_idx = b(b>0);
                     dat = Traces(:,:,tr_idx);
-                    behdat = BehTraces(:,:,tr_idx);
+                    if ~isempty(BehTraces)
+                        behdat = BehTraces(:,:,tr_idx);
+                    end
                     info.bins{istim} = reshape(repmat(1:size(dat,2),size(dat,3),1)',[],1);
                     info.trials{istim} = reshape(repmat(s_trials(st_idx),1,size(dat,2))',[],1);
                     info.clips{istim} = reshape(repmat(s_clips(st_idx),1,size(dat,2))',[],1);
