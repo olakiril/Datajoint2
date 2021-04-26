@@ -439,10 +439,11 @@ classdef Dec < dj.Computed
                     msz = min([numel(et) numel(mj_r)]);
                     et = et(numel(et) - msz + 1:end);
                     ev = nanmean([mj_r(numel(mj_r) - msz + 1:end),mn_r(numel(mn_r) - msz + 1:end)],2);
-                    ev = diff(conv(ev,gausswin(100),'same'));
-                    ev(isnan(ev)) = interp1(find(~isnan(ev)),ev(~isnan(ev)),find(isnan(ev)));
-                    idx = ~isnan(ev) & ~isnan(et);
+                    ev = diff(conv(ev,gausswin(100),'same'));et = et(2:end);
+                    idx = ~isnan(ev);
                     if sum(idx)>2
+                        ev(isnan(ev)) = interp1(find(idx),ev(idx),find(~idx));
+                        idx = ~isnan(ev) & ~isnan(et);
                         pup = abs(interp1(et(idx),ev(idx),ft));
                         B = @(t) [B(t) interp1(sft,pup,t, 'linear', 'extrap')];
                     else
