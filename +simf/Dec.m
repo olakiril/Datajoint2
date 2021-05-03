@@ -371,6 +371,72 @@ classdef Dec < dj.Computed
             end
         end
         
+        function plotMasks(self,varargin)
+            
+            params.fontsize = 10;
+            params.mi = 1;
+            params.target_cell_num = [];
+            params.mx = [];
+            params.mn = [];
+            params.tinybar = true;
+            params.colormap = [];
+            params.sitenum = true;
+            
+            params = getParams(params,varargin);
+            
+            % adjust colors
+            if isempty(params.colormap)
+                %                 params.colormap = parula(30);
+                colors = cbrewer('seq','YlPuBl',150);
+                params.colormap = colors(1:end-40,:);
+            end
+            
+            % get data
+            [area, keys] = fetchn(self & 'brain_area <> "unknown"',...
+                'brain_area');
+            
+            areas = unique(area);
+            MI = cell(size(areas));
+            for iarea = 1:length(areas)
+                idx = (strcmp(area,areas(iarea)));
+                p = getPerformance(self & keys(idx),params);
+                if iscell(p);p = cellfun(@nanmean,p);end
+                MI{iarea} = p;
+            end
+            
+            % plot
+            figure;
+            plotMask(anatomy.Masks)
+            colormap(params.colormap)
+            c = colorbar;
+            
+            % set min/max
+            mx = max(cellfun(@nanmean,MI));
+            mn = min(cellfun(@nanmean,MI));
+            if ~isempty(params.mx);mx = params.mx;end
+            if ~isempty(params.mn);mn = params.mn;end
+            
+            for iarea = 1:length(areas)
+                mi = nanmean(MI{iarea});
+                if isnan(mi);continue;end
+                idx = double(uint8(floor(((mi-mn)/(mx - mn))*0.99*size(params.colormap,1)))+1);
+                if params.sitenum; n = sum(~isnan(MI{iarea}));else n = [];end
+                plotMask(anatomy.Masks & ['brain_area="' areas{iarea} '"'],params.colormap(idx,:),n)
+            end
+            
+            if params.tinybar; ml = 2;else ml =5;end
+            if params.mi
+                labl = 'Mutual Information (bits)';
+                set(c,'ytick',linspace(0,1,ml),'yticklabel',roundall(linspace(mn,mx,ml),10^-round(abs(log10(mn/10)))))
+            else
+                labl = 'Classification performance (%)';
+                set(c,'ytick',linspace(0,1,ml),'yticklabel',round(linspace(mn*100,mx*100,ml)))
+            end
+            if params.tinybar; set(c,'Position',[0.88 0.14 0.025 0.3]);end
+            ylabel(c,labl,'Rotation',-90,'VerticalAlignment','baseline','fontsize',params.fontsize)
+            set(gcf,'name','Decoding performance - All areas')
+        end
+        
     end
     
     methods (Static)

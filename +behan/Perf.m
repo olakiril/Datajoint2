@@ -69,36 +69,39 @@ classdef Perf < dj.Computed
             linkaxes(s,'y')
         end
         
-        function [Perf_out, Days_out, mice, Trials_out] = getPerformance(self)
+        function [Perf_out, Days_out, mice, Trials_out,Session_out] = getPerformance(self)
             mice = unique(fetchn(self & 'animal_id>0','animal_id'));
             
             Days_out = []; Perf_out = [];Trials_out = [];
             for imouse = 1:length(mice)
-                try
+                
 
                     sess_keys = fetch(beh.Session & self & 'exp_type="CenterPort" OR exp_type="CenterPortTrain"' & sprintf('animal_id = %d',mice(imouse)));
                     
-                    perf = [];times = [];
+                    perf = [];times = [];sessions=[];
                     for isession = 1:length(sess_keys)
                         [perf{isession},t] = fetchn(behan.Perf * beh.Trial & sess_keys(isession),'p','start_time');
                         times{isession} =  msec2tmst(beh.Session & sess_keys(isession),t);
+                        sessions{isession} = repmat(sess_keys(isession).session_id,length(times{isession}),1);
                     end
                     perf = cell2mat(perf');
                     times = cell2mat(times');
+                    sessions = cell2mat(sessions');
                     
                     days = unique(floor(times));
-                    Perf = nan(length(days),1);trial_num = Perf;
+                    Perf = nan(length(days),1);trial_num = Perf;Sess = Perf;
                     for iday = 1:length(days)
                         idx = times>days(iday) & times<days(iday)+1;
                         Perf(iday) = nanmean(perf(idx));
                         trial_num(iday) = sum(idx);
+                        Sess(iday) = min(sessions(idx));
                     end
                     
                     Perf_out{imouse} = Perf;
                     Days_out{imouse} = days;
                     Trials_out{imouse} = trial_num;
-                    
-                end
+                    Session_out{imouse} = Sess;
+                
             end
         end
         
