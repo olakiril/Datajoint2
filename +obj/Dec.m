@@ -135,17 +135,8 @@ classdef Dec < dj.Computed
                 
                 % equalize by undersampling shorter class & randomize trial sequence
                 msz = min(cellfun(@(x) size(x,2),Data)); % calculate minimum class length
-                
-                % calculate fold bin size and recompute minimum length of data
-                if k_fold==1;bins = msz;elseif k_fold==0;bins=1;else, bins = k_fold;end
-                bin_sz = floor(msz/bins);
-                msz = bin_sz*bins;
-                
-                % test data
                 msz_test = min(cellfun(@(x) size(x,2),test_Data)); % calculate minimum class length
-                test_bin_sz = floor(msz_test/bins); % calculate fold bin size and recompute minimum length of data
-                msz_test = test_bin_sz*bins;
-                
+                                
                 % trial selection
                 switch trial_method
                     case 'random' % randomize trial sequence
@@ -157,15 +148,28 @@ classdef Dec < dj.Computed
                         test_data_idx = cellfun(@(x)  1:size(x,2),test_Data,'uni',0);
                     case 'active'
                         thr = prctile(cell2mat(cellfun(@(x) x(1,:),beh_Data,'uni',0)),80);
-                        idx = cellfun(@(x) x>thr, beh_Data,'uni',0);
-                        train_data_idx = cellfun(@(x) randperm(rseed,size(x,2)), idx,'uni',0);
+                        idx = cellfun(@(x) find(x(1,:)>=thr), beh_Data,'uni',0);
+                        train_data_idx = cellfun(@(x) x(randperm(rseed,size(x,2))), idx,'uni',0);
                         test_data_idx = train_data_idx;
+                        msz = min(cellfun(@length,train_data_idx));
+                        msz_test = msz;
                     case 'quiet'
                         thr = prctile(cell2mat(cellfun(@(x) x(1,:),beh_Data,'uni',0)),20);
-                        idx = cellfun(@(x) x<thr, beh_Data,'uni',0);
-                        train_data_idx = cellfun(@(x) randperm(rseed,size(x,2)), idx,'uni',0);
+                        idx = cellfun(@(x) find(x(1,:)<=thr), beh_Data,'uni',0);
+                        train_data_idx = cellfun(@(x) x(randperm(rseed,size(x,2))), idx,'uni',0);
                         test_data_idx = train_data_idx;
+                        msz = min(cellfun(@length,train_data_idx));
+                        msz_test = msz;
                 end
+                
+                % calculate fold bin size and recompute minimum length of data
+                if k_fold==1;bins = msz;elseif k_fold==0;bins=1;else, bins = k_fold;end
+                bin_sz = floor(msz/bins);
+                msz = bin_sz*bins;
+                
+                % test data
+                test_bin_sz = floor(msz_test/bins); % calculate fold bin size and recompute minimum length of data
+                msz_test = test_bin_sz*bins;
                 
                 % equalize by undersampling shorter class
                 train_data_idx = cellfun(@(x) x(1:msz),train_data_idx,'uni',0);
@@ -418,7 +422,7 @@ classdef Dec < dj.Computed
             X = @(t) interp1(caTimes, Traces, t, 'linear', 'extrap');  % traces indexed by time
             
             % get behavioral data
-            BehTraces = @(t) []; 
+            B = @(t) []; 
             if exists(stimulus.BehaviorSync & key)
                 ft = fetch1(stimulus.BehaviorSync & key,'frame_times');
                 sft = fetch1(stimulus.Sync & key,'frame_times');
@@ -427,21 +431,28 @@ classdef Dec < dj.Computed
                     tv(isnan(tv)) = interp1(find(~isnan(tv)),tv(~isnan(tv)),find(isnan(tv)));
                     idx = ~isnan(tv) & ~isnan(tt);
                     vel = abs(interp1(tt(idx),tv(idx),ft));
-                    BehTraces = @(t) abs(interp1(sft,vel,t, 'linear', 'extrap'));
+                    B = @(t) abs(interp1(sft,vel,t, 'linear', 'extrap'));
                 else
-                    BehTraces = @(t) nan(size(t));
+                    B = @(t) nan(size(t));
                 end
                 if  exists(eye.FittedPupilEllipse & key)
                     et = fetch1(eye.Eye & key,'eye_time');
                     [mj_r,mn_r] = fetchn(eye.FittedPupilEllipse & key,'major_radius','minor_radius');
-                    ev = nanmean([mj_r,mn_r],2);
-                    ev = diff(conv(ev,gausswin(100),'same')); et = et(2:end);
-                    ev(isnan(ev)) = interp1(find(~isnan(ev)),ev(~isnan(ev)),find(isnan(ev)));
-                    idx = ~isnan(ev) & ~isnan(et);
-                    pup = abs(interp1(et(idx),ev(idx),ft));
-                    BehTraces = @(t) [BehTraces(t) interp1(sft,pup,t, 'linear', 'extrap')];
+                    msz = min([numel(et) numel(mj_r)]);
+                    et = et(numel(et) - msz + 1:end);
+                    ev = nanmean([mj_r(numel(mj_r) - msz + 1:end),mn_r(numel(mn_r) - msz + 1:end)],2);
+                    ev = diff(conv(ev,gausswin(100),'same'));et = et(2:end);
+                    idx = ~isnan(ev);
+                    if sum(idx)>2
+                        ev(isnan(ev)) = interp1(find(idx),ev(idx),find(~idx));
+                        idx = ~isnan(ev) & ~isnan(et);
+                        pup = abs(interp1(et(idx),ev(idx),ft));
+                        B = @(t) [B(t) interp1(sft,pup,t, 'linear', 'extrap')];
+                    else
+                        B = @(t) [B(t) nan(size(t))];
+                    end
                 else
-                    BehTraces = @(t) [BehTraces(t) nan(size(t))];
+                    B = @(t) [B(t) nan(size(t))];
                 end
             end
    
@@ -463,7 +474,7 @@ classdef Dec < dj.Computed
             Stims = unique(fetchn(stimulus.Clip & trial_obj,'movie_name'));
             
             % subsample traces
-            Traces = X(flip_times); % in [bins cells trials]
+            Traces = permute(X(flip_times),[1 4 3 2]); % in [bins cells trials]
             BehTraces = B(flip_times);
             if abs(bin)>0
                 fps = 1/median(diff(flip_times(1,:)));
@@ -489,7 +500,9 @@ classdef Dec < dj.Computed
                     [tr_idx, b]= ismember(trial_idxs,s_trials);
                     st_idx = b(b>0);
                     dat = Traces(:,:,tr_idx);
-                    behdat = BehTraces(:,:,tr_idx);
+                    if ~isempty(BehTraces)
+                        behdat = BehTraces(:,:,tr_idx);
+                    end
                     info.bins{istim} = reshape(repmat(1:size(dat,2),size(dat,3),1)',[],1);
                     info.trials{istim} = reshape(repmat(s_trials(st_idx),1,size(dat,2))',[],1);
                     info.clips{istim} = reshape(repmat(s_clips(st_idx),1,size(dat,2))',[],1);
