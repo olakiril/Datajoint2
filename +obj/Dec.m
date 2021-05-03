@@ -135,17 +135,8 @@ classdef Dec < dj.Computed
                 
                 % equalize by undersampling shorter class & randomize trial sequence
                 msz = min(cellfun(@(x) size(x,2),Data)); % calculate minimum class length
-                
-                % calculate fold bin size and recompute minimum length of data
-                if k_fold==1;bins = msz;elseif k_fold==0;bins=1;else, bins = k_fold;end
-                bin_sz = floor(msz/bins);
-                msz = bin_sz*bins;
-                
-                % test data
                 msz_test = min(cellfun(@(x) size(x,2),test_Data)); % calculate minimum class length
-                test_bin_sz = floor(msz_test/bins); % calculate fold bin size and recompute minimum length of data
-                msz_test = test_bin_sz*bins;
-                
+                                
                 % trial selection
                 switch trial_method
                     case 'random' % randomize trial sequence
@@ -160,14 +151,25 @@ classdef Dec < dj.Computed
                         idx = cellfun(@(x) find(x(1,:)>=thr), beh_Data,'uni',0);
                         train_data_idx = cellfun(@(x) x(randperm(rseed,size(x,2))), idx,'uni',0);
                         test_data_idx = train_data_idx;
-                        mnz = min(cellfun(@length,train_data_idx));
+                        msz = min(cellfun(@length,train_data_idx));
+                        msz_test = msz;
                     case 'quiet'
                         thr = prctile(cell2mat(cellfun(@(x) x(1,:),beh_Data,'uni',0)),20);
                         idx = cellfun(@(x) find(x(1,:)<=thr), beh_Data,'uni',0);
                         train_data_idx = cellfun(@(x) x(randperm(rseed,size(x,2))), idx,'uni',0);
                         test_data_idx = train_data_idx;
-                        mnz = min(cellfun(@length,train_data_idx));
+                        msz = min(cellfun(@length,train_data_idx));
+                        msz_test = msz;
                 end
+                
+                % calculate fold bin size and recompute minimum length of data
+                if k_fold==1;bins = msz;elseif k_fold==0;bins=1;else, bins = k_fold;end
+                bin_sz = floor(msz/bins);
+                msz = bin_sz*bins;
+                
+                % test data
+                test_bin_sz = floor(msz_test/bins); % calculate fold bin size and recompute minimum length of data
+                msz_test = test_bin_sz*bins;
                 
                 % equalize by undersampling shorter class
                 train_data_idx = cellfun(@(x) x(1:msz),train_data_idx,'uni',0);
