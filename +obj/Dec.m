@@ -260,6 +260,7 @@ classdef Dec < dj.Computed
                 data_shfl_idx = test_data_idx(test_shfl_idx);
                 
                 % get cell index
+                rseed.reset; % reset seed in order to get same unit ids for same datasets
                 cell_idx = randperm(rseed,size(Data{1},1));
                 switch select_method
                     case 'subsample'
