@@ -115,7 +115,6 @@ classdef Dec < dj.Computed
                 'decoder','k_fold','shuffle','repetitions','select_method',...
                 'dec_params','neurons','fold_selection','binsize','normalize','trial_method');
             
-            
             % define decoder function
             if ~isempty(dec_params);dec_params = [',' dec_params];end
             decoder_func = eval(sprintf('@(X,IDs) %s(X, IDs%s)',decoder,dec_params));
@@ -136,7 +135,7 @@ classdef Dec < dj.Computed
                 % equalize by undersampling shorter class & randomize trial sequence
                 msz = min(cellfun(@(x) size(x,2),Data)); % calculate minimum class length
                 msz_test = min(cellfun(@(x) size(x,2),test_Data)); % calculate minimum class length
-                                
+                
                 % trial selection
                 switch trial_method
                     case 'random' % randomize trial sequence
@@ -423,7 +422,7 @@ classdef Dec < dj.Computed
             X = @(t) interp1(caTimes, Traces, t, 'linear', 'extrap');  % traces indexed by time
             
             % get behavioral data
-            B = @(t) []; 
+            B = @(t) [];
             if exists(stimulus.BehaviorSync & key)
                 ft = fetch1(stimulus.BehaviorSync & key,'frame_times');
                 sft = fetch1(stimulus.Sync & key,'frame_times');
@@ -456,7 +455,7 @@ classdef Dec < dj.Computed
                     B = @(t) [B(t) nan(size(t))];
                 end
             end
-   
+            
             % fetch stimuli without repeats
             if norepeats
                 trial_obj = stimulus.Trial &  ...
@@ -501,15 +500,19 @@ classdef Dec < dj.Computed
                     [tr_idx, b]= ismember(trial_idxs,s_trials);
                     st_idx = b(b>0);
                     dat = Traces(:,:,tr_idx);
-                    if ~isempty(BehTraces)
-                        behdat = BehTraces(:,:,tr_idx);
-                    end
+                    
                     info.bins{istim} = reshape(repmat(1:size(dat,2),size(dat,3),1)',[],1);
                     info.trials{istim} = reshape(repmat(s_trials(st_idx),1,size(dat,2))',[],1);
                     info.clips{istim} = reshape(repmat(s_clips(st_idx),1,size(dat,2))',[],1);
                     info.names{istim} = reshape(repmat(s_names(st_idx),1,size(dat,2))',[],1);
                     Data{istim} = reshape(dat,size(Traces,1),[]);
-                    BehData{istim} = reshape(behdat,size(BehTraces,1),[]);
+                    if ~isempty(BehTraces)
+                        behdat = BehTraces(:,:,tr_idx);
+                        BehData{istim} = reshape(behdat,size(BehTraces,1),[]);
+                    else
+                        BehData{istim} = [];
+                    end
+                    
                 end
             end
         end
