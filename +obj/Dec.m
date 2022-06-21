@@ -98,6 +98,11 @@ classdef Dec < dj.Computed
             key.trial_info = test_info;
             key.score = score;
             key.classifier = classifier;
+            key.p_shuffle = {};
+            for i = 1:length(key.score)
+                key.score{i} = int16(key.score{i}*10000);
+                key.p{i} = int8(key.p{i});
+            end
             self.insert(key)
         end
     end
@@ -147,6 +152,7 @@ classdef Dec < dj.Computed
                         test_data_idx = cellfun(@(x)  1:size(x,2),test_Data,'uni',0);
                     case 'active'
                         thr = prctile(cell2mat(cellfun(@(x) x(1,:),beh_Data,'uni',0)),80);
+                        assert(~isnan(thr),'No valid behavioral data exist!')
                         idx = cellfun(@(x) find(x(1,:)>=thr), beh_Data,'uni',0);
                         train_data_idx = cellfun(@(x) x(randperm(rseed,size(x,2))), idx,'uni',0);
                         test_data_idx = train_data_idx;
@@ -154,6 +160,7 @@ classdef Dec < dj.Computed
                         msz_test = msz;
                     case 'quiet'
                         thr = prctile(cell2mat(cellfun(@(x) x(1,:),beh_Data,'uni',0)),20);
+                        assert(~isnan(thr),'No valid behavioral data exist!')
                         idx = cellfun(@(x) find(x(1,:)<=thr), beh_Data,'uni',0);
                         train_data_idx = cellfun(@(x) x(randperm(rseed,size(x,2))), idx,'uni',0);
                         test_data_idx = train_data_idx;
@@ -395,7 +402,7 @@ classdef Dec < dj.Computed
         function [Data, Stims, info, Unit_ids, BehData] = getData(self,key,bin,stim_split,norepeats)
             
             if nargin<5 || isempty(norepeats)
-                norepeats = true;
+                norepeats = false;
             end
             
             if nargin<3 || isempty(bin)
@@ -435,25 +442,25 @@ classdef Dec < dj.Computed
                 else
                     B = @(t) nan(size(t));
                 end
-                if  exists(eye.FittedPupilEllipse & key)
-                    et = fetch1(eye.Eye & key,'eye_time');
-                    [mj_r,mn_r] = fetchn(eye.FittedPupilEllipse & key,'major_radius','minor_radius');
-                    msz = min([numel(et) numel(mj_r)]);
-                    et = et(numel(et) - msz + 1:end);
-                    ev = nanmean([mj_r(numel(mj_r) - msz + 1:end),mn_r(numel(mn_r) - msz + 1:end)],2);
-                    ev = diff(conv(ev,gausswin(100),'same'));et = et(2:end);
-                    idx = ~isnan(ev);
-                    if sum(idx)>2
-                        ev(isnan(ev)) = interp1(find(idx),ev(idx),find(~idx));
-                        idx = ~isnan(ev) & ~isnan(et);
-                        pup = abs(interp1(et(idx),ev(idx),ft));
-                        B = @(t) [B(t) interp1(sft,pup,t, 'linear', 'extrap')];
-                    else
-                        B = @(t) [B(t) nan(size(t))];
-                    end
-                else
-                    B = @(t) [B(t) nan(size(t))];
-                end
+%                 if  exists(eye.FittedPupilEllipse & key)
+%                     et = fetch1(eye.Eye & key,'eye_time');
+%                     [mj_r,mn_r] = fetchn(eye.FittedPupilEllipse & key,'major_radius','minor_radius');
+%                     msz = min([numel(et) numel(mj_r)]);
+%                     et = et(numel(et) - msz + 1:end);
+%                     ev = nanmean([mj_r(numel(mj_r) - msz + 1:end),mn_r(numel(mn_r) - msz + 1:end)],2);
+%                     ev = diff(conv(ev,gausswin(100),'same'));et = et(2:end);
+%                     idx = ~isnan(ev);
+%                     if sum(idx)>2
+%                         ev(isnan(ev)) = interp1(find(idx),ev(idx),find(~idx));
+%                         idx = ~isnan(ev) & ~isnan(et);
+%                         pup = abs(interp1(et(idx),ev(idx),ft));
+%                         B = @(t) [B(t) interp1(sft,pup,t, 'linear', 'extrap')];
+%                     else
+%                         B = @(t) nan(size(t));
+%                     end
+%                 else
+%                     B = @(t) nan(size(t));
+%                 end
             end
             
             % fetch stimuli without repeats
@@ -463,7 +470,7 @@ classdef Dec < dj.Computed
                     (aggr(stimulus.Clip , stimulus.Trial & key, 'count(*)->n') & 'n>1')) & key;
             else
                 trial_obj = stimulus.Trial &  ...
-                    ((stimulus.Clip & (stimulus.Movie & 'movie_class="object3d" OR movie_class="multiobjects"'))) & key;
+                    ((stimulus.Clip & (stimulus.Movie))) & key;
             end
             [flip_times, trial_idxs] = fetchn(...
                 trial_obj,'flip_times','trial_idx','ORDER BY trial_idx');
