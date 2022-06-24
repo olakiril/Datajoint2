@@ -705,6 +705,7 @@ classdef Dec < dj.Computed
             params.data = [];
             params.autoconvert = true;
             params.reps = false;
+            params.max_over_trials = false;
             
             params = getParams(params,varargin);
             
@@ -733,19 +734,42 @@ classdef Dec < dj.Computed
                     ncel = ci(ikey);
                     if ncel==0; perf{ikey} = nan;continue;end
                 end
-                for icell = ncel
-                    P = cellfun(@(x) x(:,:,icell),p{ikey},'uni',0);
-                    for iclass = 1:size(P,1)
-                        CM = nan(size(P,2));
-                        for igroup = 1:size(P,2)
-                            for itest = 1:size(P,2)
-                                CM(igroup,itest) = nansum(P{iclass,igroup}(:)==itest);
+                if params.max_over_trials
+                     for icell = ncel
+                        P = cellfun(@(x) x(:,:,icell),p{ikey},'uni',0);
+                        for iclass = 1:size(P,1)
+                            prf = nan(size(P{1},1),1);
+                            for itrial = 1:size(P{1},1)
+                                CM = nan(size(P,2));
+                                for igroup = 1:size(P,2)
+                                    for itest = 1:size(P,2)
+                                        CM(igroup,itest) = nansum(P{iclass,igroup}(itrial,:)==itest);
+                                    end
+                                end
+                                if params.mi
+                                    prf(itrial) = self.getMI(CM);
+                                else
+                                    prf(itrial) = sum(diag(CM))/sum(CM(:));
+                                end
                             end
+                            perf{ikey}(end+1) = nanmedian(prf);
                         end
-                        if params.mi
-                            perf{ikey}(end+1) = self.getMI(CM);
-                        else
-                            perf{ikey}(end+1) = sum(diag(CM))/sum(CM(:));
+                    end
+                else
+                    for icell = ncel
+                        P = cellfun(@(x) x(:,:,icell),p{ikey},'uni',0);
+                        for iclass = 1:size(P,1)
+                            CM = nan(size(P,2));
+                            for igroup = 1:size(P,2)
+                                for itest = 1:size(P,2)
+                                    CM(igroup,itest) = nansum(P{iclass,igroup}(:)==itest);
+                                end
+                            end
+                            if params.mi
+                                perf{ikey}(end+1) = self.getMI(CM);
+                            else
+                                perf{ikey}(end+1) = sum(diag(CM))/sum(CM(:));
+                            end
                         end
                     end
                 end
