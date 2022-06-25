@@ -52,11 +52,12 @@ classdef DecMulti < dj.Computed
             
             % merge selection of cells
             sz = cellfun(@(x) size(x{1},1),All_traces);
-            idx = sz>neurons/2; % select only areas that have half the required neurons
+            idx = sz>=neurons & ~strcmp(areas,'unknown'); % select only areas that have half the required neurons
             assert(sum(idx)>1,'Not enough neurons for comparisson!')
             All_traces = All_traces(idx);
             All_unit_ids = All_unit_ids(idx);
             areas = areas(idx);
+            sz = sz(idx);
             area_combs = combnk(1:sum(idx),2);
             
             for icomb = 1:size(area_combs,1)
