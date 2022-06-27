@@ -414,6 +414,11 @@ classdef Dec < dj.Computed
             [Traces, caTimes, keys] = getAdjustedSpikes(fuse.ActivityTrace &...
                 (anatomy.AreaMembership & key),'soma'); % [time cells]
             toc
+            if isempty(Traces)
+               disp('Empty Traces!')
+               Data=[];Stims=[];info=[];Unit_ids=[];BehData=[];
+               return
+            end
             Unit_ids = [keys.unit_id];
             tic
             % get rid of nans

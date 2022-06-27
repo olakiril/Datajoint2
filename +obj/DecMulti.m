@@ -20,7 +20,7 @@ classdef DecMulti < dj.Computed
     %#ok<*INUSL>
     
     properties
-        keySource  = fuse.ScanDone...
+        keySource  = (fuse.ScanDone & anatomy.AreaMembership)...
             * (obj.DecodeOpt & 'process = "yes"') ...
             & (stimulus.Sync & (stimulus.Trial &  ...
             (stimulus.Clip & (stimulus.Movie & 'movie_class="object3d" OR movie_class="multiobjects"'))))
@@ -33,15 +33,23 @@ classdef DecMulti < dj.Computed
             [train_set,test_set, neurons] = fetch1(obj.DecodeOpt & key,'train_set','test_set','neurons');
             
             areas = fetchn(fuse.ScanDone * anatomy.Area & anatomy.AreaMembership & key,'brain_area');
+            assert(~isempty(areas),'No areas detected')
             
-            All_traces = cell(length(areas),1);
-            All_unit_ids = cell(length(areas),1);
+            [All_traces,Stims,StimInfo,All_unit_ids,BehTraces] = initialize('cell',length(areas),1);
             for iarea = 1:length(areas)
                 % get Datad
                 area_key = key;
                 area_key.brain_area = areas{iarea};
-                [All_traces{iarea}, Stims, StimInfo, All_unit_ids{iarea}, BehTraces] = getData(obj.Dec,area_key); % [Cells, Obj, Trials]
+                [All_traces{iarea}, Stims{iarea}, StimInfo{iarea}, All_unit_ids{iarea}, BehTraces{iarea}] = getData(obj.Dec,area_key); % [Cells, Obj, Trials]
             end
+            empty_idx = ~cellfun(@isempty, All_traces);
+            assert(sum(empty_idx)>1,'No Data selected!')
+            All_traces = All_traces(empty_idx);
+            Stims = Stims(empty_idx); Stims = Stims{1};
+            StimInfo= StimInfo(empty_idx);StimInfo = StimInfo{1};
+            All_unit_ids= All_unit_ids(empty_idx);
+            BehTraces= BehTraces(empty_idx);BehTraces = BehTraces{1};
+            areas = areas(empty_idx);
             
             [train_groups,test_groups] = getGroups(obj.Dec,Stims,train_set,test_set);
             if ~isempty(test_groups)
@@ -61,6 +69,7 @@ classdef DecMulti < dj.Computed
             area_combs = combnk(1:sum(idx),2);
             
             for icomb = 1:size(area_combs,1)
+                fprintf('\n Comb# %d/%d ',icomb,size(area_combs,1));
                 mn_sz = min(sz(area_combs(icomb,:)));
                 cell_idx1 = randperm(sz(area_combs(icomb,1)),mn_sz);
                 cell_idx2 = randperm(sz(area_combs(icomb,2)),mn_sz);
