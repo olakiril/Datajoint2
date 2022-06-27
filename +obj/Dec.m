@@ -433,6 +433,7 @@ classdef Dec < dj.Computed
             if exists(stimulus.BehaviorSync & key)
                 ft = fetch1(stimulus.BehaviorSync & key,'frame_times');
                 sft = fetch1(stimulus.Sync & key,'frame_times');
+                if length(sft)==length(ft)+1; sft = sft(1:end-1);end
                 if exists(treadmill.Treadmill & key)
                     [tt,tv] = fetch1(treadmill.Treadmill & key,'treadmill_time','treadmill_vel');
                     tv(isnan(tv)) = interp1(find(~isnan(tv)),tv(~isnan(tv)),find(isnan(tv)));
@@ -470,7 +471,7 @@ classdef Dec < dj.Computed
                     (aggr(stimulus.Clip , stimulus.Trial & key, 'count(*)->n') & 'n>1')) & key;
             else
                 trial_obj = stimulus.Trial &  ...
-                    ((stimulus.Clip & (stimulus.Movie))) & key;
+                    ((stimulus.Clip & (stimulus.Movie & 'movie_class="object3d" OR movie_class="multiobjects"' ))) & key;
             end
             [flip_times, trial_idxs] = fetchn(...
                 trial_obj,'flip_times','trial_idx','ORDER BY trial_idx');
