@@ -490,7 +490,7 @@ classdef Dec < dj.Computed
             Traces = permute(X(flip_times),[1 4 3 2]); % in [bins cells trials]
             BehTraces = B(flip_times);
             if abs(bin)>0
-                fps = 1/median(diff(flip_times(1,:)));
+                fps = 1/median(reshape((diff(flip_times)),[],1));
                 d = max(1,round(abs(bin)/1000*fps));
                 Traces = convn(Traces,ones(d,1)/d,'same');
                 Traces = Traces(1:d:end,:,:); % in [bins cells trials]
@@ -711,7 +711,7 @@ classdef Dec < dj.Computed
             params.data = [];
             params.autoconvert = true;
             params.reps = false;
-            params.max_over_trials = false;
+            params.median_over_trials = false;
             
             params = getParams(params,varargin);
             
@@ -740,7 +740,7 @@ classdef Dec < dj.Computed
                     ncel = ci(ikey);
                     if ncel==0; perf{ikey} = nan;continue;end
                 end
-                if params.max_over_trials
+                if params.median_over_trials
                      for icell = ncel
                         P = cellfun(@(x) x(:,:,icell),p{ikey},'uni',0);
                         for iclass = 1:size(P,1)

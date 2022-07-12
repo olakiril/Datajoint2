@@ -145,4 +145,89 @@ classdef DecMulti < dj.Computed
             end
         end
     end
+    
+    methods
+        function [perf, keys] = getPerformance(self,varargin)
+            
+            params.target_cell_num = [];
+            params.perf = 'p';
+            params.mi = 1;
+            params.data = [];
+            params.autoconvert = true;
+            params.reps = false;
+            params.max_over_trials = false;
+            
+            params = getParams(params,varargin);
+            
+            [p, ti, keys] = fetchn(self, params.perf,'trial_info');
+            if ~isempty(params.data)
+                p = {params.data};
+            end
+            
+            % remove empty classes
+            p = cellfun(@(x) x(:,any(~cellfun(@isempty,x),1)),p,'uni',0);
+            perf = cell(length(p),1);
+            for ikey = 1:length(p)
+                if params.reps
+                    p{ikey} = cellfun(@(x) permute(x(:,:,size(p{ikey}{1},3)),[3 2 1]),p{ikey},'uni',0);
+                    ncel =1:size(p{ikey}{1},3);
+                elseif isempty(params.target_cell_num)
+                    ncel =1:size(p{ikey}{1},3);
+                elseif params.target_cell_num==0
+                    ci = cellfun(@(x) max([find(cell2mat(cellfun(@length,x.units{1},'uni',0))>...
+                        params.target_cell_num,1,'last'),0]),ti);
+                    ncel = ci(ikey);
+                    if ncel==0;continue;end
+                else
+                    ci = cellfun(@(x) max([find(cell2mat(cellfun(@length,x.units{1},'uni',0))>...
+                        params.target_cell_num-1,1,'first'),0]),ti);
+                    ncel = ci(ikey);
+                    if ncel==0; perf{ikey} = nan;continue;end
+                end
+                if params.max_over_trials
+                    for icell = ncel
+                        P = cellfun(@(x) x(:,:,icell),p{ikey},'uni',0);
+                        for iclass = 1:size(P,1)
+                            prf = nan(size(P{1},1),1);
+                            for itrial = 1:size(P{1},1)
+                                CM = nan(size(P,2));
+                                for igroup = 1:size(P,2)
+                                    for itest = 1:size(P,2)
+                                        CM(igroup,itest) = nansum(P{iclass,igroup}(itrial,:)==itest);
+                                    end
+                                end
+                                if params.mi
+                                    prf(itrial) = obj.Dec.getMI(CM);
+                                else
+                                    prf(itrial) = sum(diag(CM))/sum(CM(:));
+                                end
+                            end
+                            perf{ikey}(end+1) = nanmedian(prf);
+                        end
+                    end
+                else
+                    for icell = ncel
+                        P = cellfun(@(x) x(:,:,icell),p{ikey},'uni',0);
+                        for iclass = 1:size(P,1)
+                            CM = nan(size(P,2));
+                            for igroup = 1:size(P,2)
+                                for itest = 1:size(P,2)
+                                    CM(igroup,itest) = nansum(P{iclass,igroup}(:)==itest);
+                                end
+                            end
+                            if params.mi
+                                perf{ikey}(end+1) = obj.Dec.getMI(CM);
+                            else
+                                perf{ikey}(end+1) = sum(diag(CM))/sum(CM(:));
+                            end
+                        end
+                    end
+                end
+            end
+            if all(cellfun(@length,perf)==1) && params.autoconvert
+                perf = cell2mat(perf);
+            end
+        end
+        
+    end
 end
