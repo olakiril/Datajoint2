@@ -438,7 +438,8 @@ classdef Dec < dj.Computed
             if exists(stimulus.BehaviorSync & key)
                 ft = fetch1(stimulus.BehaviorSync & key,'frame_times');
                 sft = fetch1(stimulus.Sync & key,'frame_times');
-                if length(sft)==length(ft)+1; sft = sft(1:end-1);end
+                if length(sft)==length(ft)+1; sft = sft(1:end-1);
+                elseif length(sft)+1==length(ft); ft = ft(1:end-1);end
                 if exists(treadmill.Treadmill & key)
                     [tt,tv] = fetch1(treadmill.Treadmill & key,'treadmill_time','treadmill_vel');
                     tv(isnan(tv)) = interp1(find(~isnan(tv)),tv(~isnan(tv)),find(isnan(tv)));
@@ -633,6 +634,7 @@ classdef Dec < dj.Computed
             params.colors  = [];
             params.areas = [];
             params.errors = true;
+            params.normalize = false;
             
             params = getParams(params,varargin);
             
@@ -663,6 +665,10 @@ classdef Dec < dj.Computed
             
             if isempty(params.colors)
                 params.colors = hsv(length(un_areas));
+            end
+            
+            if params.normalize
+                MI = cellfun(@(x,y) x/x(y),MI, mat2cell(cell_idx,ones(length(cell_idx),1)),'uni',0);
             end
             
             h = [];
